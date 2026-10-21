@@ -100,13 +100,18 @@ type GameStore = {
   triggerAction: "win" | "dead" | null;
   setTriggerAction: (action: "win" | "dead" | null) => void;
 
-  // Easter Egg: Zusana (Blender Suzanne Monkey)
+  // Zusana Easter Egg: Zusana (Blender Suzanne Monkey)
   foundSuzanne: boolean;
   setFoundSuzanne: (found: boolean) => void;
   showSuzanneModal: boolean;
   setShowSuzanneModal: (show: boolean) => void;
   suzannePos: [number, number, number] | null;
   setSuzannePos: (pos: [number, number, number] | null) => void;
+
+  // Camera Distance / Zoom
+  cameraDistance: number;
+  setCameraDistance: (dist: number) => void;
+  toggleCameraDistance: () => void;
 };
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -193,6 +198,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setShowSuzanneModal: (showSuzanneModal) => set({ showSuzanneModal }),
   suzannePos: null,
   setSuzannePos: (suzannePos) => set({ suzannePos }),
+
+  // Camera Distance: default 1.65m for very close, immersive perspective
+  cameraDistance: 1.65,
+  setCameraDistance: (cameraDistance) => set({ cameraDistance: Math.max(1.1, Math.min(3.2, cameraDistance)) }),
+  toggleCameraDistance: () =>
+    set((state) => ({
+      cameraDistance: state.cameraDistance < 2.0 ? 2.6 : 1.65,
+    })),
 }));
 
 export { DEFAULT_SCHOOL_RECORDS, DEFAULT_SUSANA_RECORDS };

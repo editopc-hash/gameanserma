@@ -29,6 +29,7 @@ import {
   Trophy,
   Clock,
   User,
+  Camera,
 } from "lucide-react";
 
 function formatSec(sec: number): string {
@@ -47,6 +48,10 @@ export function GameView() {
   const gameWon = useGameStore((s) => s.gameWon);
   const distanceToGoal = useGameStore((s) => s.distanceToGoal);
   const progressPercent = useGameStore((s) => s.progressPercent);
+
+  // Dynamic Camera Distance (Zoom)
+  const cameraDistance = useGameStore((s) => s.cameraDistance);
+  const toggleCameraDistance = useGameStore((s) => s.toggleCameraDistance);
 
   // Player and speedrun state
   const playerName = useGameStore((s) => s.playerName);
@@ -136,7 +141,7 @@ export function GameView() {
       {/* 3D Scene - loads silently behind the preloader without any ugly 'Cargando' text */}
       <Canvas
         shadows
-        camera={{ position: [0, 5, -88], fov: 60, near: 0.1, far: 2000 }}
+        camera={{ position: [0, 2, -95.6], fov: 48, near: 0.1, far: 2000 }}
         dpr={[1, Math.min(typeof window !== "undefined" ? window.devicePixelRatio : 1, 1.75)]}
         gl={{ powerPreference: "high-performance", antialias: true }}
       >
@@ -422,29 +427,56 @@ export function GameView() {
             )}
           </div>
 
-          <button
-            onClick={triggerResetPlayerPos}
-            title="Reiniciar en el Parque Principal"
-            css={css({
-              background: "rgba(255, 255, 255, 0.1)",
-              border: "none",
-              color: "#cbd5e1",
-              borderRadius: "6px",
-              padding: "3px 7px",
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              fontSize: "10px",
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-              "&:hover": {
-                background: "rgba(56, 189, 248, 0.2)",
-                color: "#38bdf8",
-              },
-            })}
-          >
-            <RotateCcw size={11} /> Reiniciar
-          </button>
+          <div css={css({ display: "flex", alignItems: "center", gap: "6px" })}>
+            <button
+              onClick={toggleCameraDistance}
+              title="Alternar distancia de cámara (Cerca / Normal)"
+              css={css({
+                background: cameraDistance < 2.0 ? "rgba(56, 189, 248, 0.22)" : "rgba(255, 255, 255, 0.1)",
+                border: cameraDistance < 2.0 ? "1px solid rgba(56, 189, 248, 0.6)" : "1px solid transparent",
+                color: cameraDistance < 2.0 ? "#38bdf8" : "#cbd5e1",
+                borderRadius: "6px",
+                padding: "3px 7px",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                fontSize: "10px",
+                fontWeight: 700,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+                "&:hover": {
+                  background: "rgba(56, 189, 248, 0.3)",
+                  color: "#38bdf8",
+                },
+              })}
+            >
+              <Camera size={11} /> {cameraDistance < 2.0 ? "Cámara Cerca" : "Cámara Media"}
+            </button>
+
+            <button
+              onClick={triggerResetPlayerPos}
+              title="Reiniciar en el Parque Principal"
+              css={css({
+                background: "rgba(255, 255, 255, 0.1)",
+                border: "none",
+                color: "#cbd5e1",
+                borderRadius: "6px",
+                padding: "3px 7px",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                fontSize: "10px",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+                "&:hover": {
+                  background: "rgba(56, 189, 248, 0.2)",
+                  color: "#38bdf8",
+                },
+              })}
+            >
+              <RotateCcw size={11} /> Reiniciar
+            </button>
+          </div>
         </div>
 
         {showControlsHelp && (
@@ -477,6 +509,12 @@ export function GameView() {
             <div css={css({ display: "flex", justifyContent: "space-between" })}>
               <span>Caer (K.O.):</span>
               <span css={kbdStyle}>M</span>
+            </div>
+            <div css={css({ display: "flex", justifyContent: "space-between" })}>
+              <span>Zoom cámara:</span>
+              <span css={css({ color: "#38bdf8", fontWeight: 700 })}>
+                {isMobile ? "Pellizcar pantalla" : "Rueda del mouse"}
+              </span>
             </div>
             <div
               css={css({

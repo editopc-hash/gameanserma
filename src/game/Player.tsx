@@ -111,6 +111,16 @@ export function Player() {
   const triggerAction = useGameStore((s) => s.triggerAction);
   const setTriggerAction = useGameStore((s) => s.setTriggerAction);
 
+  // Dynamic Camera Distance (Zoom)
+  const cameraDistance = useGameStore((s) => s.cameraDistance);
+  const setCameraDistance = useGameStore((s) => s.setCameraDistance);
+  const camDistTarget = useRef(cameraDistance || 1.65);
+  const touchPinchDist = useRef<number | null>(null);
+
+  useEffect(() => {
+    camDistTarget.current = cameraDistance;
+  }, [cameraDistance]);
+
   // States
   const [animState, setAnimState] = useState<AnimationState>("idle");
   const currentActionName = useRef<string>("idle");
@@ -141,7 +151,7 @@ export function Player() {
   }, [triggerAction, setTriggerAction]);
 
   // Camera angles
-  const cameraAngle = useRef({ yaw: Math.PI, pitch: 0.28 });
+  const cameraAngle = useRef({ yaw: Math.PI, pitch: 0.22 });
   const isMouseDown = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
   const touchCamId = useRef<number | null>(null);
@@ -263,8 +273,21 @@ export function Player() {
       );
     };
 
-    // Touch swipe camera rotation for mobile
+    // Wheel zoom for PC
+    const onWheel = (e: WheelEvent) => {
+      const next = Math.max(1.1, Math.min(3.2, camDistTarget.current + e.deltaY * 0.002));
+      camDistTarget.current = next;
+      setCameraDistance(next);
+    };
+
+    // Touch swipe camera rotation and pinch zoom for mobile
     const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length >= 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        touchPinchDist.current = Math.hypot(dx, dy);
+        return;
+      }
       for (let i = 0; i < e.touches.length; i++) {
         const touch = e.touches[i];
         const isNearJoystick = touch.clientX < 150 && touch.clientY > window.innerHeight - 170;
@@ -279,6 +302,21 @@ export function Player() {
     };
 
     const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length >= 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        if (touchPinchDist.current !== null) {
+          const diff = touchPinchDist.current - dist;
+          const next = Math.max(1.1, Math.min(3.2, camDistTarget.current + diff * 0.006));
+          camDistTarget.current = next;
+          setCameraDistance(next);
+        }
+        touchPinchDist.current = dist;
+        return;
+      }
+      touchPinchDist.current = null;
+
       if (touchCamId.current === null) return;
       for (let i = 0; i < e.touches.length; i++) {
         const touch = e.touches[i];
@@ -298,6 +336,9 @@ export function Player() {
     };
 
     const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) {
+        touchPinchDist.current = null;
+      }
       if (touchCamId.current === null) return;
       let stillPresent = false;
       for (let i = 0; i < e.touches.length; i++) {
@@ -314,6 +355,7 @@ export function Player() {
     window.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mouseup", onMouseUp);
     window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("wheel", onWheel, { passive: true });
 
     window.addEventListener("touchstart", onTouchStart, { passive: true });
     window.addEventListener("touchmove", onTouchMove, { passive: true });
@@ -324,20 +366,21 @@ export function Player() {
       window.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("mouseup", onMouseUp);
       window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("wheel", onWheel);
 
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", onTouchEnd);
       window.removeEventListener("touchcancel", onTouchEnd);
     };
-  }, []);
+  }, [setCameraDistance]);
 
   // Spawn player at Parque Principal (Inicio)
   const spawnPlayer = () => {
     if (group.current) {
       group.current.position.set(START_POS[0], START_POS[1], START_POS[2]);
       group.current.rotation.set(0, 0, 0); // Face North toward Colegio
-      cameraAngle.current = { yaw: Math.PI, pitch: 0.28 };
+      cameraAngle.current = { yaw: Math.PI, pitch: 0.22 };
       specialState.current = null;
     }
   };
@@ -593,35 +636,35 @@ export function Player() {
       }
     }
 
-    // Closer third-person camera (3.2m instead of 5.2m for an intimate, immersive view)
-    const cameraDist = 3.2;
+    // Close third-person camera (default 1.65m - character is close and prominent)
+    const targetDist = camDistTarget.current || 1.65;
     const camOffset = new THREE.Vector3(
       Math.sin(cameraAngle.current.yaw) *
         Math.cos(cameraAngle.current.pitch) *
-        cameraDist,
-      Math.sin(cameraAngle.current.pitch) * cameraDist + 0.95,
+        targetDist,
+      Math.sin(cameraAngle.current.pitch) * targetDist + 0.45,
       Math.cos(cameraAngle.current.yaw) *
         Math.cos(cameraAngle.current.pitch) *
-        cameraDist
+        targetDist
     );
 
     const lookTarget = player.position
       .clone()
-      .add(new THREE.Vector3(0, 1.25, 0));
+      .add(new THREE.Vector3(0, 1.15, 0));
 
     // Camera occlusion: pull camera forward if a building is directly behind the character
-    let actualCamDist = cameraDist;
+    let actualCamDist = targetDist;
     const camRayDir = camOffset.clone().normalize();
     obstacleRaycaster.set(lookTarget, camRayDir);
-    obstacleRaycaster.far = cameraDist;
+    obstacleRaycaster.far = targetDist;
     const camHits = obstacleRaycaster.intersectObjects(obstacles, true);
-    const camWallHit = camHits.find((h) => h.object.userData?.isObstacle && h.distance < cameraDist);
+    const camWallHit = camHits.find((h) => h.object.userData?.isObstacle && h.distance < targetDist);
     if (camWallHit) {
-      actualCamDist = Math.max(1.4, camWallHit.distance - 0.35);
+      actualCamDist = Math.max(0.75, camWallHit.distance - 0.2);
     }
 
     const desiredCamPos = lookTarget.clone().add(camRayDir.multiplyScalar(actualCamDist));
-    camera.position.lerp(desiredCamPos, 0.15);
+    camera.position.lerp(desiredCamPos, 0.22);
     camera.lookAt(lookTarget);
   });
 
