@@ -95,6 +95,12 @@ export function Player() {
   const setDistanceToGoal = useGameStore((s) => s.setDistanceToGoal);
   const setProgressPercent = useGameStore((s) => s.setProgressPercent);
 
+  // Zusana Easter Egg hooks
+  const suzannePos = useGameStore((s) => s.suzannePos);
+  const foundSuzanne = useGameStore((s) => s.foundSuzanne);
+  const setFoundSuzanne = useGameStore((s) => s.setFoundSuzanne);
+  const setShowSuzanneModal = useGameStore((s) => s.setShowSuzanneModal);
+
   // Mobile Touch Controls from store
   const touchMove = useGameStore((s) => s.touchMove);
   const touchRunning = useGameStore((s) => s.touchRunning);
@@ -469,6 +475,18 @@ export function Player() {
     // Reached the school!
     if (dist < 6.5 && !gameWon) {
       setGameWon(true);
+    }
+
+    // Check proximity to Zusana (Suzanne monkey head from Blender)
+    if (!foundSuzanne && suzannePos) {
+      const distToSuzanne = Math.hypot(
+        player.position.x - suzannePos[0],
+        player.position.z - suzannePos[2]
+      );
+      if (distToSuzanne < 5.0) {
+        setFoundSuzanne(true);
+        setShowSuzanneModal(true);
+      }
     }
 
     // Smooth third person camera following behind player

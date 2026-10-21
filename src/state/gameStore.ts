@@ -28,6 +28,14 @@ type GameStore = {
   setTouchRunning: (running: boolean) => void;
   triggerAction: "win" | "dead" | null;
   setTriggerAction: (action: "win" | "dead" | null) => void;
+
+  // Easter Egg: Zusana (Blender Suzanne Monkey)
+  foundSuzanne: boolean;
+  setFoundSuzanne: (found: boolean) => void;
+  showSuzanneModal: boolean;
+  setShowSuzanneModal: (show: boolean) => void;
+  suzannePos: [number, number, number] | null;
+  setSuzannePos: (pos: [number, number, number] | null) => void;
 };
 
 export const useGameStore = create<GameStore>((set) => ({
@@ -39,7 +47,12 @@ export const useGameStore = create<GameStore>((set) => ({
   setSpeed: (speed) => set({ speed }),
   resetPlayerPos: false,
   triggerResetPlayerPos: () =>
-    set((state) => ({ resetPlayerPos: !state.resetPlayerPos, gameWon: false })),
+    set((state) => ({
+      resetPlayerPos: !state.resetPlayerPos,
+      gameWon: false,
+      foundSuzanne: false,
+      showSuzanneModal: false,
+    })),
   gameWon: false,
   setGameWon: (gameWon) => set({ gameWon }),
   distanceToGoal: 190,
@@ -54,4 +67,12 @@ export const useGameStore = create<GameStore>((set) => ({
   setTouchRunning: (touchRunning) => set({ touchRunning }),
   triggerAction: null,
   setTriggerAction: (triggerAction) => set({ triggerAction }),
+
+  // Zusana Easter Egg
+  foundSuzanne: false,
+  setFoundSuzanne: (foundSuzanne) => set({ foundSuzanne }),
+  showSuzanneModal: false,
+  setShowSuzanneModal: (showSuzanneModal) => set({ showSuzanneModal }),
+  suzannePos: null,
+  setSuzannePos: (suzannePos) => set({ suzannePos }),
 }));

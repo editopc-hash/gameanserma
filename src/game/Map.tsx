@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useGLTF, Html } from "@react-three/drei";
 import * as THREE from "three";
-import { START_POS, GOAL_POS } from "@/state/gameStore";
+import { START_POS, GOAL_POS, useGameStore } from "@/state/gameStore";
 
 const BUILDING_COLORS = [
   "#f1ece4", // Warm stucco
@@ -19,32 +19,12 @@ const BUILDING_COLORS = [
 
 export function Map() {
   const { scene } = useGLTF("/models/mapa.glb");
-  const iglesiaGltf = useGLTF("/models/iglesia.glb");
-  const letreroGltf = useGLTF(
-    "/models/Meshy_AI_Yo_Amo_Anserma_1021043824_texture.glb"
-  );
   const mapRef = useRef<THREE.Group>(null);
+  const setSuzannePos = useGameStore((s) => s.setSuzannePos);
+  const foundSuzanne = useGameStore((s) => s.foundSuzanne);
 
   // Exact town center calculated from Anserma building footprints
   const offset = useMemo(() => new THREE.Vector3(-4.58, 0, -4.83), []);
-
-  // Configure church and landmark models
-  useEffect(() => {
-    iglesiaGltf.scene.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-        child.userData.isObstacle = true;
-      }
-    });
-
-    letreroGltf.scene.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-      }
-    });
-  }, [iglesiaGltf, letreroGltf]);
 
   useEffect(() => {
     let meshIndex = 0;
@@ -54,6 +34,35 @@ export function Map() {
         const mesh = child as THREE.Mesh;
         mesh.castShadow = true;
         mesh.receiveShadow = true;
+
+        const isSuzanne =
+          mesh.name.toLowerCase().includes("suzanne") ||
+          mesh.name.toLowerCase().includes("mono") ||
+          mesh.name.toLowerCase().includes("zusana") ||
+          child.parent?.name.toLowerCase().includes("suzanne");
+
+        if (isSuzanne) {
+          // Suzanne / Zusana: Golden Blender monkey trophy
+          mesh.material = new THREE.MeshStandardMaterial({
+            color: "#f59e0b",
+            metalness: 0.85,
+            roughness: 0.25,
+            emissive: "#b45309",
+            emissiveIntensity: 0.2,
+          });
+          mesh.userData.isSuzanne = true;
+          mesh.userData.isObstacle = false;
+
+          // Compute world position after group offset
+          const worldPos = new THREE.Vector3();
+          mesh.getWorldPosition(worldPos);
+          setSuzannePos([
+            worldPos.x + offset.x,
+            worldPos.y + offset.y,
+            worldPos.z + offset.z,
+          ]);
+          return;
+        }
 
         mesh.geometry.computeBoundingBox();
         const geomBox = mesh.geometry.boundingBox;
@@ -68,11 +77,10 @@ export function Map() {
           }
         }
 
-        // Check if mesh already has a textured material from the user's edit
+        // Preserve any custom textures created in Blender
         const hasTexture = Boolean((mesh.material as any)?.map);
 
         if (hasTexture) {
-          // Preserve custom textures created by the user
           mesh.userData.isObstacle = isBuilding;
           mesh.userData.isGround = !isBuilding;
         } else if (isBuilding) {
@@ -99,27 +107,12 @@ export function Map() {
         meshIndex++;
       }
     });
-  }, [scene]);
+  }, [scene, offset, setSuzannePos]);
 
   return (
     <group ref={mapRef} position={offset}>
+      {/* Only load the user's updated mapa.glb */}
       <primitive object={scene} />
-
-      {/* Real Church of Anserma: Parroquia Santa Bárbara */}
-      <primitive
-        object={iglesiaGltf.scene}
-        position={[-20, 6, -94]}
-        scale={[6.5, 6.5, 6.5]}
-        rotation={[0, Math.PI / 2, 0]}
-      />
-
-      {/* Real Landmark Sign: "Yo Amo Anserma" at the Parque Principal */}
-      <primitive
-        object={letreroGltf.scene}
-        position={[0, 0.9, -100]}
-        scale={[1.1, 1.1, 1.1]}
-        rotation={[0, 0, 0]}
-      />
 
       {/* Base street and pavement level */}
       <mesh
@@ -208,5 +201,3 @@ export function Map() {
 }
 
 useGLTF.preload("/models/mapa.glb");
-useGLTF.preload("/models/iglesia.glb");
-useGLTF.preload("/models/Meshy_AI_Yo_Amo_Anserma_1021043824_texture.glb");

@@ -17,6 +17,8 @@ import {
   Navigation,
   ChevronDown,
   ChevronUp,
+  Smile,
+  X,
 } from "lucide-react";
 
 function Loader() {
@@ -51,7 +53,7 @@ function Loader() {
         />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         <span style={{ fontSize: "13px", fontWeight: "600", letterSpacing: "0.5px" }}>
-          Cargando Calles de Anserma y Personaje...
+          Cargando Calles de Anserma y Zusana...
         </span>
       </div>
     </Html>
@@ -65,6 +67,11 @@ export function GameView() {
   const gameWon = useGameStore((s) => s.gameWon);
   const distanceToGoal = useGameStore((s) => s.distanceToGoal);
   const progressPercent = useGameStore((s) => s.progressPercent);
+
+  // Zusana Easter Egg
+  const foundSuzanne = useGameStore((s) => s.foundSuzanne);
+  const showSuzanneModal = useGameStore((s) => s.showSuzanneModal);
+  const setShowSuzanneModal = useGameStore((s) => s.setShowSuzanneModal);
 
   // Responsive mobile detection
   const [isMobile, setIsMobile] = useState(false);
@@ -181,7 +188,7 @@ export function GameView() {
           fontFamily: "system-ui, -apple-system, sans-serif",
           boxShadow: "0 14px 34px rgba(0, 0, 0, 0.4)",
           width: isMobile ? "90%" : "auto",
-          maxWidth: "440px",
+          maxWidth: "460px",
           zIndex: 120,
           display: "flex",
           flexDirection: "column",
@@ -203,9 +210,27 @@ export function GameView() {
               Objetivo: <strong>Colegio de Occidente</strong>
             </span>
           </div>
-          <span css={css({ color: "#facc15", fontWeight: 700 })}>
-            {distanceToGoal} m restantes
-          </span>
+
+          <div css={css({ display: "flex", alignItems: "center", gap: "8px" })}>
+            {foundSuzanne && (
+              <span
+                css={css({
+                  background: "rgba(245, 158, 11, 0.25)",
+                  border: "1px solid #f59e0b",
+                  borderRadius: "9999px",
+                  padding: "1px 8px",
+                  fontSize: "10px",
+                  color: "#fcd34d",
+                  fontWeight: 700,
+                })}
+              >
+                🐵 Zusana ✓
+              </span>
+            )}
+            <span css={css({ color: "#facc15", fontWeight: 700 })}>
+              {distanceToGoal} m restantes
+            </span>
+          </div>
         </div>
 
         {/* Progress Bar */}
@@ -509,6 +534,128 @@ export function GameView() {
           <span css={css({ fontSize: "9px", color: "#64748b" })}>km/h</span>
         </div>
       </div>
+
+      {/* Pop-up: ¡Felicidades, encontraste a Zusana (mono de Blender)! */}
+      {showSuzanneModal && (
+        <div
+          css={css({
+            position: "absolute",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.75)",
+            backdropFilter: "blur(10px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9998,
+            animation: "fadeIn 0.3s ease",
+            padding: "1rem",
+            "@keyframes fadeIn": {
+              from: { opacity: 0, transform: "scale(0.95)" },
+              to: { opacity: 1, transform: "scale(1)" },
+            },
+          })}
+        >
+          <div
+            css={css({
+              background: "linear-gradient(145deg, #1e293b 0%, #0f172a 100%)",
+              border: "2px solid #f59e0b",
+              borderRadius: "24px",
+              padding: isMobile ? "24px 20px" : "32px 36px",
+              textAlign: "center",
+              boxShadow:
+                "0 25px 60px rgba(0, 0, 0, 0.7), 0 0 35px rgba(245, 158, 11, 0.35)",
+              maxWidth: "420px",
+              width: "100%",
+              color: "white",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "14px",
+              position: "relative",
+            })}
+          >
+            <button
+              onClick={() => setShowSuzanneModal(false)}
+              css={css({
+                position: "absolute",
+                top: "14px",
+                right: "14px",
+                background: "rgba(255, 255, 255, 0.1)",
+                border: "none",
+                borderRadius: "50%",
+                width: "28px",
+                height: "28px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#cbd5e1",
+                cursor: "pointer",
+              })}
+            >
+              <X size={16} />
+            </button>
+
+            <div
+              css={css({
+                fontSize: "52px",
+                lineHeight: 1,
+                filter: "drop-shadow(0 0 16px rgba(245, 158, 11, 0.6))",
+              })}
+            >
+              🐵
+            </div>
+
+            <div css={css({ display: "flex", flexDirection: "column", gap: "6px" })}>
+              <h2
+                css={css({
+                  fontSize: isMobile ? "20px" : "22px",
+                  fontWeight: 900,
+                  color: "#f59e0b",
+                  margin: 0,
+                  letterSpacing: "0.5px",
+                })}
+              >
+                ¡Felicidades, encontraste a Zusana!
+              </h2>
+              <span css={css({ fontSize: "12px", color: "#fbbf24", fontWeight: 700 })}>
+                (Mono de Blender)
+              </span>
+              <p
+                css={css({
+                  color: "#cbd5e1",
+                  fontSize: isMobile ? "12px" : "13px",
+                  margin: "8px 0 0 0",
+                  lineHeight: 1.4,
+                })}
+              >
+                ¡Has descubierto el secreto oculto en el mapa de Anserma! Zusana es el icónico
+                mono de Blender escondido en la ciudad.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowSuzanneModal(false)}
+              css={css({
+                background: "linear-gradient(90deg, #f59e0b 0%, #d97706 100%)",
+                color: "white",
+                border: "none",
+                borderRadius: "12px",
+                padding: "10px 26px",
+                fontSize: "14px",
+                fontWeight: 700,
+                cursor: "pointer",
+                boxShadow: "0 8px 18px rgba(217, 119, 6, 0.4)",
+                marginTop: "6px",
+                "&:hover": {
+                  transform: "translateY(-1px)",
+                },
+              })}
+            >
+              ¡Genial! Continuar recorrido ✨
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Victory Celebration Modal when reaching the School */}
       {gameWon && (
