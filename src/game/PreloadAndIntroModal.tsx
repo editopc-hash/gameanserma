@@ -331,55 +331,31 @@ export function PreloadAndIntroModal({ onOpenLeaderboard }: Props) {
             })}
           >
             <Play size={18} fill="currentColor" />
-            <span>Ver Intro y Comenzar</span>
+            <span>Comenzar</span>
           </button>
 
-          <div css={css({ display: "flex", gap: "10px" })}>
-            <button
-              onClick={handleStartDirectly}
-              css={css({
-                flex: 1,
-                background: "rgba(255, 255, 255, 0.08)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                color: "#e2e8f0",
-                borderRadius: "12px",
-                padding: "10px 14px",
-                fontSize: "12.5px",
-                fontWeight: 700,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "6px",
-                "&:hover": { background: "rgba(255, 255, 255, 0.15)", color: "white" },
-              })}
-            >
-              <span>Jugar Directo</span>
-            </button>
-
-            <button
-              onClick={onOpenLeaderboard}
-              css={css({
-                flex: 1,
-                background: "rgba(250, 204, 21, 0.12)",
-                border: "1px solid rgba(250, 204, 21, 0.3)",
-                color: "#facc15",
-                borderRadius: "12px",
-                padding: "10px 14px",
-                fontSize: "12.5px",
-                fontWeight: 700,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "6px",
-                "&:hover": { background: "rgba(250, 204, 21, 0.22)" },
-              })}
-            >
-              <Trophy size={14} />
-              <span>Ver Top 3</span>
-            </button>
-          </div>
+          <button
+            onClick={onOpenLeaderboard}
+            css={css({
+              width: "100%",
+              background: "rgba(250, 204, 21, 0.12)",
+              border: "1px solid rgba(250, 204, 21, 0.3)",
+              color: "#facc15",
+              borderRadius: "12px",
+              padding: "10px 14px",
+              fontSize: "12.5px",
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              "&:hover": { background: "rgba(250, 204, 21, 0.22)" },
+            })}
+          >
+            <Trophy size={14} />
+            <span>Ver Top 3</span>
+          </button>
         </div>
       </div>
     </div>

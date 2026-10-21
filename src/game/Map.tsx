@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useMemo } from "react";
-import { useGLTF, Html, Billboard, Text } from "@react-three/drei";
+import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { START_POS, GOAL_POS, useGameStore } from "@/state/gameStore";
 
@@ -16,12 +16,36 @@ const BUILDING_COLORS = [
   "#fdba74", // Terracotta light
 ];
 
+const SHARED_BUILDING_MATERIALS = BUILDING_COLORS.map(
+  (color) =>
+    new THREE.MeshStandardMaterial({
+      color,
+      roughness: 0.65,
+      metalness: 0.1,
+      flatShading: false,
+      side: THREE.DoubleSide,
+    })
+);
+
+const SHARED_ROAD_MATERIAL = new THREE.MeshStandardMaterial({
+  color: "#1c2128",
+  roughness: 0.85,
+  metalness: 0.05,
+});
+
+const SHARED_SUZANNE_MATERIAL = new THREE.MeshStandardMaterial({
+  color: "#f59e0b",
+  metalness: 0.85,
+  roughness: 0.25,
+  emissive: "#b45309",
+  emissiveIntensity: 0.35,
+});
+
 export function Map() {
   const modelUrl = `${import.meta.env.BASE_URL}models/mapa.glb`;
   const { scene } = useGLTF(modelUrl);
   const mapRef = useRef<THREE.Group>(null);
   const setSuzannePos = useGameStore((s) => s.setSuzannePos);
-  const foundSuzanne = useGameStore((s) => s.foundSuzanne);
 
   // Center the map at [0, 0, 0]
   const offset = useMemo(() => new THREE.Vector3(0, 0, 0), []);
@@ -44,18 +68,10 @@ export function Map() {
           child.parent?.name.toLowerCase().includes("suzanne");
 
         if (isSuzanne) {
-          // Suzanne / Zusana: Golden Blender monkey trophy
-          mesh.material = new THREE.MeshStandardMaterial({
-            color: "#f59e0b",
-            metalness: 0.85,
-            roughness: 0.25,
-            emissive: "#b45309",
-            emissiveIntensity: 0.35,
-          });
+          mesh.material = SHARED_SUZANNE_MATERIAL;
           mesh.userData.isSuzanne = true;
           mesh.userData.isObstacle = false;
 
-          // Compute exact world position
           const worldPos = new THREE.Vector3();
           mesh.getWorldPosition(worldPos);
           setSuzannePos([worldPos.x, worldPos.y, worldPos.z]);
@@ -75,7 +91,6 @@ export function Map() {
           }
         }
 
-        // Preserve any custom textures created in Blender
         const hasTexture = Boolean((mesh.material as any)?.map);
 
         if (hasTexture) {
@@ -85,23 +100,11 @@ export function Map() {
             (mesh.material as THREE.Material).side = THREE.DoubleSide;
           }
         } else if (isBuilding) {
-          const color = BUILDING_COLORS[meshIndex % BUILDING_COLORS.length];
-          mesh.material = new THREE.MeshStandardMaterial({
-            color: color,
-            roughness: 0.65,
-            metalness: 0.1,
-            flatShading: false,
-            side: THREE.DoubleSide, // Ensure both front and back faces block rays
-          });
+          mesh.material = SHARED_BUILDING_MATERIALS[meshIndex % SHARED_BUILDING_MATERIALS.length];
           mesh.userData.isObstacle = true;
           mesh.userData.isGround = false;
         } else {
-          // Roads / pedestrian paths
-          mesh.material = new THREE.MeshStandardMaterial({
-            color: "#1c2128", // Rich dark asphalt
-            roughness: 0.85,
-            metalness: 0.05,
-          });
+          mesh.material = SHARED_ROAD_MATERIAL;
           mesh.userData.isRoad = true;
           mesh.userData.isGround = true;
           mesh.userData.isObstacle = false;

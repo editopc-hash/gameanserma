@@ -30,6 +30,8 @@ import {
   Clock,
   User,
   Camera,
+  Settings,
+  Info,
 } from "lucide-react";
 
 function formatSec(sec: number): string {
@@ -74,9 +76,10 @@ export function GameView() {
   // Temporary start toast: "Parque Principal de Anserma"
   const [showStartToast, setShowStartToast] = useState(false);
 
-  // Responsive mobile detection
+  // Responsive mobile detection & collapsible Gear menu + About modal
   const [isMobile, setIsMobile] = useState(false);
   const [showControlsHelp, setShowControlsHelp] = useState(false);
+  const [showAboutModal, setShowAboutModal] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -84,7 +87,6 @@ export function GameView() {
         /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
         window.innerWidth < 768;
       setIsMobile(mobile);
-      setShowControlsHelp(!mobile);
     };
     checkMobile();
     window.addEventListener("resize", checkMobile);
@@ -143,7 +145,7 @@ export function GameView() {
       <Canvas
         shadows
         camera={{ position: [0, 2, -95.6], fov: 48, near: 0.1, far: 2000 }}
-        dpr={[1, Math.min(typeof window !== "undefined" ? window.devicePixelRatio : 1, 1.75)]}
+        dpr={[1, Math.min(typeof window !== "undefined" ? window.devicePixelRatio : 1, 1.5)]}
         gl={{ powerPreference: "high-performance", antialias: true }}
       >
         <fog attach="fog" args={["#cde3f7", 80, 750]} />
@@ -371,227 +373,310 @@ export function GameView() {
         </div>
       )}
 
-      {/* Floating HUD Controls (Top Left) */}
+      {/* Top-Right Button: Acerca de (Replaces old Modo: Jugar / Map3D bar) */}
+      <button
+        onClick={() => setShowAboutModal(true)}
+        title="Acerca de"
+        css={css({
+          position: "absolute",
+          top: isMobile ? "6.2rem" : "1rem",
+          right: isMobile ? "0.8rem" : "1.5rem",
+          background: "rgba(15, 23, 42, 0.85)",
+          backdropFilter: "blur(14px)",
+          border: "1px solid rgba(56, 189, 248, 0.4)",
+          borderRadius: "12px",
+          padding: isMobile ? "7px 12px" : "8px 14px",
+          color: "#f8fafc",
+          fontFamily: "system-ui, -apple-system, sans-serif",
+          fontSize: isMobile ? "11.5px" : "12.5px",
+          fontWeight: 700,
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          boxShadow: "0 10px 25px rgba(0, 0, 0, 0.4)",
+          cursor: "pointer",
+          zIndex: 120,
+          transition: "all 0.2s ease",
+          "&:hover": {
+            background: "rgba(2, 132, 199, 0.35)",
+            borderColor: "#38bdf8",
+          },
+        })}
+      >
+        <Info size={15} color="#38bdf8" />
+        <span>Acerca de</span>
+      </button>
+
+      {/* Top-Left Expandable Gear Button (Engrane que se despliega con Ayuda, Distancia y Reiniciar) */}
       <div
         css={css({
           position: "absolute",
-          top: isMobile ? "7.8rem" : "4.0rem",
+          top: isMobile ? "6.2rem" : "1rem",
           left: isMobile ? "0.8rem" : "1.5rem",
-          background: "rgba(15, 23, 42, 0.8)",
-          backdropFilter: "blur(14px)",
-          border: "1px solid rgba(255, 255, 255, 0.12)",
-          borderRadius: "14px",
-          padding: showControlsHelp ? "12px 16px" : "8px 12px",
-          color: "#f8fafc",
-          fontFamily: "system-ui, -apple-system, sans-serif",
-          boxShadow: "0 16px 36px rgba(0, 0, 0, 0.35)",
-          maxWidth: isMobile ? "245px" : "310px",
           zIndex: 120,
-          transition: "all 0.2s ease",
+          fontFamily: "system-ui, -apple-system, sans-serif",
         })}
       >
-        <div
-          css={css({
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            borderBottom: "1px solid rgba(255,255,255,0.1)",
-            paddingBottom: "6px",
-            marginBottom: "6px",
-            gap: "8px",
-          })}
-        >
-          <div
-            onClick={() => setShowControlsHelp(!showControlsHelp)}
-            css={css({
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              cursor: "pointer",
-            })}
-          >
-            <Gamepad2 size={15} color="#38bdf8" />
-            <span
-              css={css({
-                fontWeight: 700,
-                fontSize: "12px",
-                letterSpacing: "0.4px",
-              })}
-            >
-              {isMobile ? "Ayuda" : "Controles"}
-            </span>
-            {showControlsHelp ? (
-              <ChevronUp size={14} color="#94a3b8" />
-            ) : (
-              <ChevronDown size={14} color="#94a3b8" />
-            )}
-          </div>
-
-          <div css={css({ display: "flex", alignItems: "center", gap: "6px" })}>
-            <button
-              onClick={toggleCameraDistance}
-              title="Alternar distancia de cámara"
-              css={css({
-                background: "rgba(56, 189, 248, 0.2)",
-                border: "1px solid rgba(56, 189, 248, 0.5)",
-                color: "#38bdf8",
-                borderRadius: "6px",
-                padding: "3px 7px",
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                fontSize: "10px",
-                fontWeight: 700,
-                cursor: "pointer",
-              })}
-            >
-              <Camera size={11} /> {cameraDistance.toFixed(1)}m
-            </button>
-
-            <button
-              onClick={triggerResetPlayerPos}
-              title="Reiniciar en el Parque Principal"
-              css={css({
-                background: "rgba(255, 255, 255, 0.1)",
-                border: "none",
-                color: "#cbd5e1",
-                borderRadius: "6px",
-                padding: "3px 7px",
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                fontSize: "10px",
-                cursor: "pointer",
-                transition: "all 0.15s ease",
-                "&:hover": {
-                  background: "rgba(56, 189, 248, 0.2)",
-                  color: "#38bdf8",
-                },
-              })}
-            >
-              <RotateCcw size={11} /> Reiniciar
-            </button>
-          </div>
-        </div>
-
-        {/* Always-visible Camera Distance Slider & -/+ Buttons for instant control */}
-        <div
-          css={css({
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            marginBottom: showControlsHelp ? "8px" : "0",
-          })}
-        >
-          <span css={css({ fontSize: "10px", color: "#94a3b8", fontWeight: 600, whiteSpace: "nowrap" })}>
-            Distancia:
-          </span>
+        {!showControlsHelp ? (
           <button
-            onClick={() => setCameraDistance(cameraDistance - 0.35)}
-            title="Acercar cámara"
+            onClick={() => setShowControlsHelp(true)}
+            title="Abrir opciones (Ayuda, Distancia y Reiniciar)"
             css={css({
-              background: "rgba(255,255,255,0.12)",
-              border: "none",
-              color: "white",
-              borderRadius: "5px",
-              width: "20px",
-              height: "20px",
-              fontSize: "12px",
-              fontWeight: 800,
-              cursor: "pointer",
+              width: isMobile ? "40px" : "44px",
+              height: isMobile ? "40px" : "44px",
+              borderRadius: "12px",
+              background: "rgba(15, 23, 42, 0.85)",
+              backdropFilter: "blur(14px)",
+              border: "1px solid rgba(255, 255, 255, 0.18)",
+              color: "#38bdf8",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.4)",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              "&:hover": {
+                transform: "rotate(35deg) scale(1.05)",
+                borderColor: "#38bdf8",
+              },
             })}
           >
-            -
+            <Settings size={21} />
           </button>
-          <input
-            type="range"
-            min="0.8"
-            max="7.5"
-            step="0.1"
-            value={cameraDistance}
-            onChange={(e) => setCameraDistance(parseFloat(e.target.value))}
-            css={css({
-              flex: 1,
-              accentColor: "#38bdf8",
-              cursor: "pointer",
-              height: "4px",
-            })}
-          />
-          <button
-            onClick={() => setCameraDistance(cameraDistance + 0.35)}
-            title="Alejar cámara"
-            css={css({
-              background: "rgba(255,255,255,0.12)",
-              border: "none",
-              color: "white",
-              borderRadius: "5px",
-              width: "20px",
-              height: "20px",
-              fontSize: "12px",
-              fontWeight: 800,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            })}
-          >
-            +
-          </button>
-        </div>
-
-        {showControlsHelp && (
+        ) : (
           <div
             css={css({
-              display: "flex",
-              flexDirection: "column",
-              gap: "7px",
-              fontSize: "11px",
-              color: "#cbd5e1",
-              borderTop: "1px solid rgba(255,255,255,0.08)",
-              paddingTop: "6px",
+              background: "rgba(15, 23, 42, 0.9)",
+              backdropFilter: "blur(16px)",
+              border: "1px solid rgba(255, 255, 255, 0.16)",
+              borderRadius: "16px",
+              padding: "12px 16px",
+              color: "#f8fafc",
+              boxShadow: "0 16px 36px rgba(0, 0, 0, 0.45)",
+              width: isMobile ? "250px" : "305px",
+              transition: "all 0.2s ease",
             })}
           >
-            <div css={css({ display: "flex", justifyContent: "space-between" })}>
-              <span>Moverse:</span>
-              <span>
-                <span css={kbdStyle}>W</span> <span css={kbdStyle}>A</span>{" "}
-                <span css={kbdStyle}>S</span> <span css={kbdStyle}>D</span>
-              </span>
-            </div>
-            <div css={css({ display: "flex", justifyContent: "space-between" })}>
-              <span>Correr:</span>
-              <span>
-                <span css={kbdStyle}>Shift</span> sostenido
-              </span>
-            </div>
-            <div css={css({ display: "flex", justifyContent: "space-between" })}>
-              <span>Celebrar (+Música):</span>
-              <span css={kbdStyle}>G</span>
-            </div>
-            <div css={css({ display: "flex", justifyContent: "space-between" })}>
-              <span>Caer (K.O.):</span>
-              <span css={kbdStyle}>M</span>
-            </div>
-            <div css={css({ display: "flex", justifyContent: "space-between" })}>
-              <span>Zoom cámara:</span>
-              <span css={css({ color: "#38bdf8", fontWeight: 700 })}>
-                {isMobile ? "Barra / Pellizcar" : "Rueda / Barra"}
-              </span>
-            </div>
             <div
               css={css({
-                borderTop: "1px dashed rgba(255,255,255,0.1)",
-                paddingTop: "6px",
-                color: "#94a3b8",
-                fontSize: "10px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                borderBottom: "1px solid rgba(255,255,255,0.1)",
+                paddingBottom: "8px",
+                marginBottom: "10px",
+                gap: "8px",
               })}
             >
-              {isMobile
-                ? "💡 Desliza la pantalla hacia arriba/abajo o lados para mirar en cualquier dirección."
-                : "💡 Clic y arrastra hacia arriba, abajo o los lados para mirar libremente."}
+              <div
+                onClick={() => setShowControlsHelp(false)}
+                css={css({
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  cursor: "pointer",
+                })}
+              >
+                <Settings size={16} color="#38bdf8" />
+                <span
+                  css={css({
+                    fontWeight: 800,
+                    fontSize: "12.5px",
+                    letterSpacing: "0.3px",
+                  })}
+                >
+                  Opciones y Ayuda
+                </span>
+              </div>
+
+              <div css={css({ display: "flex", alignItems: "center", gap: "6px" })}>
+                <button
+                  onClick={triggerResetPlayerPos}
+                  title="Reiniciar en el Parque Principal"
+                  css={css({
+                    background: "rgba(255, 255, 255, 0.1)",
+                    border: "none",
+                    color: "#cbd5e1",
+                    borderRadius: "6px",
+                    padding: "4px 8px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    fontSize: "10.5px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                    "&:hover": {
+                      background: "rgba(56, 189, 248, 0.2)",
+                      color: "#38bdf8",
+                    },
+                  })}
+                >
+                  <RotateCcw size={11} /> Reiniciar
+                </button>
+
+                <button
+                  onClick={() => setShowControlsHelp(false)}
+                  title="Cerrar opciones"
+                  css={css({
+                    background: "rgba(255, 255, 255, 0.08)",
+                    border: "none",
+                    color: "#94a3b8",
+                    borderRadius: "6px",
+                    width: "24px",
+                    height: "24px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    "&:hover": { color: "white", background: "rgba(255,255,255,0.16)" },
+                  })}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+
+            {/* Camera Distance Slider & -/+ Buttons */}
+            <div
+              css={css({
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+                marginBottom: "10px",
+                background: "rgba(255, 255, 255, 0.04)",
+                padding: "8px 10px",
+                borderRadius: "10px",
+              })}
+            >
+              <div css={css({ display: "flex", justifyContent: "space-between", alignItems: "center" })}>
+                <span css={css({ fontSize: "11px", color: "#cbd5e1", fontWeight: 700 })}>
+                  📷 Distancia de Cámara:
+                </span>
+                <button
+                  onClick={toggleCameraDistance}
+                  css={css({
+                    background: "rgba(56, 189, 248, 0.2)",
+                    border: "1px solid rgba(56, 189, 248, 0.5)",
+                    color: "#38bdf8",
+                    borderRadius: "6px",
+                    padding: "2px 6px",
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  })}
+                >
+                  {cameraDistance.toFixed(1)}m
+                </button>
+              </div>
+
+              <div css={css({ display: "flex", alignItems: "center", gap: "6px" })}>
+                <button
+                  onClick={() => setCameraDistance(cameraDistance - 0.35)}
+                  title="Acercar cámara"
+                  css={css({
+                    background: "rgba(255,255,255,0.14)",
+                    border: "none",
+                    color: "white",
+                    borderRadius: "6px",
+                    width: "24px",
+                    height: "24px",
+                    fontSize: "13px",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  })}
+                >
+                  -
+                </button>
+                <input
+                  type="range"
+                  min="0.8"
+                  max="7.5"
+                  step="0.1"
+                  value={cameraDistance}
+                  onChange={(e) => setCameraDistance(parseFloat(e.target.value))}
+                  css={css({
+                    flex: 1,
+                    accentColor: "#38bdf8",
+                    cursor: "pointer",
+                    height: "4px",
+                  })}
+                />
+                <button
+                  onClick={() => setCameraDistance(cameraDistance + 0.35)}
+                  title="Alejar cámara"
+                  css={css({
+                    background: "rgba(255,255,255,0.14)",
+                    border: "none",
+                    color: "white",
+                    borderRadius: "6px",
+                    width: "24px",
+                    height: "24px",
+                    fontSize: "13px",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  })}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Help & Controls List */}
+            <div
+              css={css({
+                display: "flex",
+                flexDirection: "column",
+                gap: "7px",
+                fontSize: "11px",
+                color: "#cbd5e1",
+              })}
+            >
+              <div css={css({ display: "flex", justifyContent: "space-between" })}>
+                <span>Moverse:</span>
+                <span>
+                  <span css={kbdStyle}>W</span> <span css={kbdStyle}>A</span>{" "}
+                  <span css={kbdStyle}>S</span> <span css={kbdStyle}>D</span>
+                </span>
+              </div>
+              <div css={css({ display: "flex", justifyContent: "space-between" })}>
+                <span>Correr:</span>
+                <span>
+                  <span css={kbdStyle}>Shift</span> sostenido
+                </span>
+              </div>
+              <div css={css({ display: "flex", justifyContent: "space-between" })}>
+                <span>Celebrar (+Música):</span>
+                <span css={kbdStyle}>G</span>
+              </div>
+              <div css={css({ display: "flex", justifyContent: "space-between" })}>
+                <span>Caer (K.O.):</span>
+                <span css={kbdStyle}>M</span>
+              </div>
+              <div css={css({ display: "flex", justifyContent: "space-between" })}>
+                <span>Zoom cámara:</span>
+                <span css={css({ color: "#38bdf8", fontWeight: 700 })}>
+                  {isMobile ? "Barra / Pellizcar" : "Rueda / Barra"}
+                </span>
+              </div>
+              <div
+                css={css({
+                  borderTop: "1px dashed rgba(255,255,255,0.1)",
+                  paddingTop: "6px",
+                  color: "#94a3b8",
+                  fontSize: "10px",
+                })}
+              >
+                {isMobile
+                  ? "💡 Desliza la pantalla hacia arriba/abajo o lados para mirar en cualquier dirección."
+                  : "💡 Clic y arrastra hacia arriba, abajo o los lados para mirar libremente."}
+              </div>
             </div>
           </div>
         )}
@@ -974,6 +1059,131 @@ export function GameView() {
                 <RotateCcw size={15} /> Jugar de nuevo
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Acerca de Modal (SENA & Instructor Edwin Angel Mena Martinez) */}
+      {showAboutModal && (
+        <div
+          onClick={() => setShowAboutModal(false)}
+          css={css({
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.85)",
+            backdropFilter: "blur(14px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 13000,
+            padding: "1rem",
+            fontFamily: "system-ui, -apple-system, sans-serif",
+          })}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            css={css({
+              background: "linear-gradient(145deg, #1e293b 0%, #0f172a 100%)",
+              border: "2px solid #38bdf8",
+              borderRadius: "24px",
+              padding: isMobile ? "24px 20px" : "32px 36px",
+              textAlign: "center",
+              boxShadow: "0 25px 60px rgba(0, 0, 0, 0.7), 0 0 40px rgba(56, 189, 248, 0.3)",
+              maxWidth: "420px",
+              width: "100%",
+              color: "white",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "16px",
+              position: "relative",
+            })}
+          >
+            <button
+              onClick={() => setShowAboutModal(false)}
+              css={css({
+                position: "absolute",
+                top: "14px",
+                right: "14px",
+                background: "rgba(255, 255, 255, 0.1)",
+                border: "none",
+                color: "#cbd5e1",
+                borderRadius: "50%",
+                width: "30px",
+                height: "30px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                "&:hover": { background: "rgba(255, 255, 255, 0.2)", color: "white" },
+              })}
+            >
+              <X size={16} />
+            </button>
+
+            <div
+              css={css({
+                background: "rgba(255, 255, 255, 0.95)",
+                padding: "16px 24px",
+                borderRadius: "20px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 10px 25px rgba(0, 0, 0, 0.4)",
+              })}
+            >
+              <img
+                src={`${import.meta.env.BASE_URL}images/sena.png`}
+                alt="Logo SENA"
+                css={css({
+                  maxWidth: "130px",
+                  maxHeight: "130px",
+                  objectFit: "contain",
+                })}
+              />
+            </div>
+
+            <div>
+              <h2
+                css={css({
+                  fontSize: isMobile ? "20px" : "22px",
+                  fontWeight: 900,
+                  color: "#38bdf8",
+                  margin: "0 0 6px 0",
+                })}
+              >
+                Acerca de
+              </h2>
+              <p
+                css={css({
+                  fontSize: isMobile ? "14px" : "15px",
+                  fontWeight: 700,
+                  color: "#f8fafc",
+                  margin: 0,
+                  lineHeight: 1.4,
+                })}
+              >
+                Instructor Edwin Angel Mena Martinez
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowAboutModal(false)}
+              css={css({
+                width: "100%",
+                background: "linear-gradient(90deg, #38bdf8 0%, #0284c7 100%)",
+                color: "white",
+                border: "none",
+                borderRadius: "12px",
+                padding: "11px 18px",
+                fontSize: "14px",
+                fontWeight: 800,
+                cursor: "pointer",
+                boxShadow: "0 8px 20px rgba(2, 132, 199, 0.4)",
+              })}
+            >
+              Cerrar
+            </button>
           </div>
         </div>
       )}
