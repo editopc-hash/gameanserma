@@ -1,6 +1,6 @@
 import React, { Suspense, useState, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
-import { Sky, Environment, Html } from "@react-three/drei";
+import { Sky, Environment } from "@react-three/drei";
 import { css } from "@emotion/react";
 import { Map } from "./Map";
 import { Player } from "./Player";
@@ -30,45 +30,6 @@ import {
   Clock,
   User,
 } from "lucide-react";
-
-function Loader() {
-  return (
-    <Html center>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "12px",
-          background: "rgba(15, 23, 42, 0.92)",
-          color: "white",
-          padding: "18px 28px",
-          borderRadius: "16px",
-          backdropFilter: "blur(12px)",
-          boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
-          fontFamily: "system-ui, sans-serif",
-          maxWidth: "280px",
-          textAlign: "center",
-        }}
-      >
-        <div
-          style={{
-            width: "36px",
-            height: "36px",
-            border: "3px solid rgba(255,255,255,0.2)",
-            borderTopColor: "#38bdf8",
-            borderRadius: "50%",
-            animation: "spin 1s linear infinite",
-          }}
-        />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        <span style={{ fontSize: "13px", fontWeight: "600", letterSpacing: "0.5px" }}>
-          Cargando Calles de Anserma y Zusana...
-        </span>
-      </div>
-    </Html>
-  );
-}
 
 function formatSec(sec: number): string {
   if (sec < 60) {
@@ -172,7 +133,7 @@ export function GameView() {
         WebkitUserSelect: "none",
       })}
     >
-      {/* 3D Scene */}
+      {/* 3D Scene - loads silently behind the preloader without any ugly 'Cargando' text */}
       <Canvas
         shadows
         camera={{ position: [0, 5, -88], fov: 60, near: 0.1, far: 2000 }}
@@ -215,8 +176,8 @@ export function GameView() {
         />
         <Environment preset="city" />
 
-        {/* 3D World */}
-        <Suspense fallback={<Loader />}>
+        {/* 3D World - silent background load */}
+        <Suspense fallback={null}>
           <Map />
           <Player />
         </Suspense>
@@ -921,7 +882,7 @@ export function GameView() {
         initialTab={leaderboardTab}
       />
 
-      {/* Preload Poster & Intro Video Modal at Start */}
+      {/* Preload Poster & Intro Video Modal at Start (Covers everything from millisecond 0, zero loading screens) */}
       <PreloadAndIntroModal
         onOpenLeaderboard={() => {
           setLeaderboardTab("school");

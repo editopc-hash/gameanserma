@@ -1,6 +1,6 @@
-import React, { useRef, useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useGLTF, useAnimations } from "@react-three/drei";
+import { useAnimations, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { AnimationState, useGameStore, START_POS, GOAL_POS } from "@/state/gameStore";
 
@@ -14,11 +14,11 @@ export function Player() {
   const winGltf = useGLTF(`${import.meta.env.BASE_URL}models/ganar.glb`);
   const deadGltf = useGLTF(`${import.meta.env.BASE_URL}models/muerto.glb`);
 
-  // Merge and rename animation clips
+  // Merge and rename animation clips - exactly as in the original working version
   const clips = useMemo(() => {
     const list: THREE.AnimationClip[] = [];
 
-    // 1. Idle (natural resting standing pose from Casual_Walk)
+    // 1. Idle (use Casual_Walk)
     const idleClip =
       walkGltf.animations.find((a) => a.name === "Casual_Walk") ||
       walkGltf.animations[0];
@@ -28,11 +28,10 @@ export function Player() {
       list.push(c);
     }
 
-    // 2. Walk (Walking or Casual_Walk)
+    // 2. Walk (Walking)
     const walkClip =
       walkGltf.animations.find((a) => a.name === "Walking") ||
-      walkGltf.animations.find((a) => a.name !== "Running") ||
-      walkGltf.animations[1] ||
+      walkGltf.animations.find((a) => a.name !== "Casual_Walk") ||
       walkGltf.animations[0];
     if (walkClip) {
       const c = walkClip.clone();
@@ -50,10 +49,11 @@ export function Player() {
       list.push(c);
     }
 
-    // 4. Win / Celebrate (Dance)
+    // 4. Win / Celebrate (All_Night_Dance)
     const winClip =
+      winGltf.animations.find((a) => a.name === "All_Night_Dance") ||
       winGltf.animations.find((a) => a.name.toLowerCase().includes("dance")) ||
-      winGltf.animations[0];
+      winGltf.animations[2];
     if (winClip) {
       const c = winClip.clone();
       c.name = "win";
@@ -62,8 +62,9 @@ export function Player() {
 
     // 5. Dead / Fall (Dead)
     const deadClip =
+      deadGltf.animations.find((a) => a.name === "Dead") ||
       deadGltf.animations.find((a) => a.name.toLowerCase().includes("dead")) ||
-      deadGltf.animations[0];
+      deadGltf.animations[3];
     if (deadClip) {
       const c = deadClip.clone();
       c.name = "dead";
@@ -73,12 +74,10 @@ export function Player() {
     return list;
   }, [walkGltf, runGltf, winGltf, deadGltf]);
 
-  // Bind animation mixer
   const { actions } = useAnimations(clips, group);
 
-  // Enable shadows on player mesh
+  // Enable shadows on the player model
   useEffect(() => {
-    if (!walkGltf.scene) return;
     walkGltf.scene.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         child.castShadow = true;
@@ -96,8 +95,7 @@ export function Player() {
   const setDistanceToGoal = useGameStore((s) => s.setDistanceToGoal);
   const setProgressPercent = useGameStore((s) => s.setProgressPercent);
 
-  // Game start and speedrun timers
-  const gameStarted = useGameStore((s) => s.gameStarted);
+  // Timers
   const startTime = useGameStore((s) => s.startTime);
   const setTimeElapsed = useGameStore((s) => s.setTimeElapsed);
 
@@ -142,40 +140,22 @@ export function Player() {
     }
   }, [triggerAction, setTriggerAction]);
 
-  // Camera angles: yaw Math.PI positions camera behind character looking North (+Z) toward Colegio
+  // Camera angles
   const cameraAngle = useRef({ yaw: Math.PI, pitch: 0.28 });
   const isMouseDown = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
   const touchCamId = useRef<number | null>(null);
   const lastTouchCamPos = useRef({ x: 0, y: 0 });
 
-  // Raycasters
+  // Raycasters for ground and wall collision
   const downRaycaster = useMemo(
     () => new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 0, 15),
     []
   );
   const obstacleRaycaster = useMemo(
-    () => new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, 0, 1), 0, 5),
+    () => new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, 0, 1), 0, 2.0),
     []
   );
-
-  // Cached obstacle meshes for ultra-fast and reliable collision
-  const obstacleMeshesRef = useRef<THREE.Mesh[]>([]);
-
-  useEffect(() => {
-    const updateObstacles = () => {
-      const list: THREE.Mesh[] = [];
-      scene.traverse((child) => {
-        if ((child as THREE.Mesh).isMesh && child.userData?.isObstacle) {
-          list.push(child as THREE.Mesh);
-        }
-      });
-      obstacleMeshesRef.current = list;
-    };
-    updateObstacles();
-    const timer = setTimeout(updateObstacles, 1500);
-    return () => clearTimeout(timer);
-  }, [scene]);
 
   // Keyboard handlers
   useEffect(() => {
@@ -328,11 +308,11 @@ export function Player() {
     };
   }, []);
 
-  // Spawn player at Parque Principal (Inicio) facing North towards Colegio
+  // Spawn player at Parque Principal (Inicio)
   const spawnPlayer = () => {
     if (group.current) {
       group.current.position.set(START_POS[0], START_POS[1], START_POS[2]);
-      group.current.rotation.set(0, 0, 0);
+      group.current.rotation.set(0, 0, 0); // Face North toward Colegio
       cameraAngle.current = { yaw: Math.PI, pitch: 0.28 };
       specialState.current = null;
     }
@@ -349,50 +329,36 @@ export function Player() {
     }
   }, [gameWon]);
 
-  // Handle animation switching with resting standing pose when idle
+  // Handle animation switching with crossfade - exactly as in the original working version
   useEffect(() => {
     if (!actions) return;
 
     const prevAction = actions[currentActionName.current];
     const nextAction = actions[animState];
 
-    if (nextAction) {
-      if (animState === "idle") {
-        // Natural quiet resting standing pose: freeze at frame 0 so the character stays completely still!
-        nextAction.reset();
-        nextAction.time = 0;
-        nextAction.play();
-        nextAction.paused = true;
+    if (nextAction && nextAction !== prevAction) {
+      nextAction.reset();
+
+      if (animState === "dead") {
+        nextAction.setLoop(THREE.LoopOnce, 1);
+        nextAction.clampWhenFinished = true;
       } else {
-        nextAction.paused = false;
-        if (animState === "dead") {
-          nextAction.setLoop(THREE.LoopOnce, 1);
-          nextAction.clampWhenFinished = true;
-        } else {
-          nextAction.setLoop(THREE.LoopRepeat, Infinity);
-        }
-        nextAction.fadeIn(0.2).play();
+        nextAction.setLoop(THREE.LoopRepeat, Infinity);
       }
 
-      if (prevAction && prevAction !== nextAction) {
+      nextAction.fadeIn(0.2).play();
+
+      if (prevAction) {
         prevAction.fadeOut(0.2);
       }
 
       currentActionName.current = animState;
+    } else if (nextAction && !nextAction.isRunning()) {
+      nextAction.play();
     }
 
     setCurrentAnimation(animState);
   }, [animState, actions, setCurrentAnimation]);
-
-  // Helper function to check obstacle ray hits
-  const checkObstacleHit = (origin: THREE.Vector3, direction: THREE.Vector3, maxDist: number): boolean => {
-    obstacleRaycaster.set(origin, direction);
-    obstacleRaycaster.far = maxDist;
-
-    const targets = obstacleMeshesRef.current.length > 0 ? obstacleMeshesRef.current : scene.children;
-    const hits = obstacleRaycaster.intersectObjects(targets, true);
-    return hits.some((h) => h.object.userData?.isObstacle && h.distance <= maxDist);
-  };
 
   // Frame update
   useFrame((_, delta) => {
@@ -401,7 +367,7 @@ export function Player() {
     const player = group.current;
 
     // Timer update
-    if (gameStarted && !gameWon && startTime) {
+    if (!gameWon && startTime) {
       setTimeElapsed((Date.now() - startTime) / 1000);
     }
 
@@ -415,7 +381,7 @@ export function Player() {
     const hasTouchMove =
       Math.abs(touchMove.x) > 0.08 || Math.abs(touchMove.y) > 0.08;
 
-    const isMoving = (hasKeyboardMove || hasTouchMove) && gameStarted;
+    const isMoving = hasKeyboardMove || hasTouchMove;
 
     // Clear win or dead state if player starts moving
     if (isMoving && specialState.current !== null && !gameWon) {
@@ -443,7 +409,7 @@ export function Player() {
     // Velocity & movement
     let moveSpeed = 0;
     if (isMoving && specialState.current === null && !gameWon) {
-      moveSpeed = isRunning ? 9.2 : 4.2;
+      moveSpeed = isRunning ? 9.5 : 4.2;
     }
     setSpeed(moveSpeed);
 
@@ -451,21 +417,21 @@ export function Player() {
       let moveZ = 0;
       let moveX = 0;
 
-      if (keys.current.forward) moveZ += 1;
-      if (keys.current.backward) moveZ -= 1;
+      if (keys.current.forward) moveZ -= 1;
+      if (keys.current.backward) moveZ += 1;
       if (keys.current.left) moveX -= 1;
       if (keys.current.right) moveX += 1;
 
       // Add touch joystick input
       if (hasTouchMove) {
         moveX += touchMove.x;
-        moveZ += touchMove.y; // touchMove.y is positive forward
+        moveZ -= touchMove.y; // touchMove.y is positive forward
       }
 
       const inputDir = new THREE.Vector3(moveX, 0, moveZ).normalize();
 
       // Rotate input direction by camera yaw
-      inputDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraAngle.current.yaw - Math.PI);
+      inputDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraAngle.current.yaw);
 
       // Smoothly rotate player toward movement direction
       const targetRotationY = Math.atan2(inputDir.x, inputDir.z);
@@ -475,64 +441,46 @@ export function Player() {
       ) - Math.PI;
       player.rotation.y += diff * Math.min(1, delta * 14);
 
+      // Robust obstacle collision check with wall sliding
       const moveDistance = moveSpeed * delta;
-      const dx = inputDir.x * moveDistance;
-      const dz = inputDir.z * moveDistance;
+      const rayOrigin = player.position.clone().add(new THREE.Vector3(0, 0.85, 0));
+      obstacleRaycaster.set(rayOrigin, inputDir);
 
-      // Multi-ray collision detection with decoupled X and Z axes (wall-sliding)
-      const heights = [0.35, 0.85, 1.4];
-      const sideOffsets = [-0.32, 0, 0.32];
+      const intersects = obstacleRaycaster.intersectObjects(scene.children, true);
+      const obstacleHit = intersects.find(
+        (hit) => hit.object.userData?.isObstacle && hit.distance < 0.70
+      );
 
-      // 1. Test X-axis movement
-      if (Math.abs(dx) > 0.0001) {
-        const dirX = new THREE.Vector3(Math.sign(dx), 0, 0);
-        const testDistX = Math.abs(dx) + 0.48;
-        let blockedX = false;
-
-        for (const h of heights) {
-          for (const s of sideOffsets) {
-            const rayOrigin = new THREE.Vector3(player.position.x, player.position.y + h, player.position.z + s);
-            if (checkObstacleHit(rayOrigin, dirX, testDistX)) {
-              blockedX = true;
-              break;
-            }
-          }
-          if (blockedX) break;
+      if (!obstacleHit) {
+        player.position.addScaledVector(inputDir, moveDistance);
+      } else {
+        // Try sliding along X
+        const xDir = new THREE.Vector3(inputDir.x, 0, 0).normalize();
+        obstacleRaycaster.set(rayOrigin, xDir);
+        const hitX = obstacleRaycaster.intersectObjects(scene.children, true).find(
+          (hit) => hit.object.userData?.isObstacle && hit.distance < 0.65
+        );
+        if (!hitX && Math.abs(inputDir.x) > 0.1) {
+          player.position.x += inputDir.x * moveDistance;
         }
 
-        if (!blockedX) {
-          player.position.x += dx;
-        }
-      }
-
-      // 2. Test Z-axis movement
-      if (Math.abs(dz) > 0.0001) {
-        const dirZ = new THREE.Vector3(0, 0, Math.sign(dz));
-        const testDistZ = Math.abs(dz) + 0.48;
-        let blockedZ = false;
-
-        for (const h of heights) {
-          for (const s of sideOffsets) {
-            const rayOrigin = new THREE.Vector3(player.position.x + s, player.position.y + h, player.position.z);
-            if (checkObstacleHit(rayOrigin, dirZ, testDistZ)) {
-              blockedZ = true;
-              break;
-            }
-          }
-          if (blockedZ) break;
-        }
-
-        if (!blockedZ) {
-          player.position.z += dz;
+        // Try sliding along Z
+        const zDir = new THREE.Vector3(0, 0, inputDir.z).normalize();
+        obstacleRaycaster.set(rayOrigin, zDir);
+        const hitZ = obstacleRaycaster.intersectObjects(scene.children, true).find(
+          (hit) => hit.object.userData?.isObstacle && hit.distance < 0.65
+        );
+        if (!hitZ && Math.abs(inputDir.z) > 0.1) {
+          player.position.z += inputDir.z * moveDistance;
         }
       }
 
-      // Boundary clamp to map limits
+      // Keep within map boundaries
       player.position.x = Math.max(-100, Math.min(100, player.position.x));
       player.position.z = Math.max(-125, Math.min(125, player.position.z));
     }
 
-    // Ground raycasting: streets and ground plane
+    // Ground raycasting: ONLY streets and ground plane, NEVER buildings
     const downOrigin = player.position.clone().add(new THREE.Vector3(0, 3, 0));
     downRaycaster.set(downOrigin, new THREE.Vector3(0, -1, 0));
     const groundHits = downRaycaster.intersectObjects(scene.children, true);

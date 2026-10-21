@@ -142,7 +142,8 @@ export function PreloadAndIntroModal({ onOpenLeaderboard }: Props) {
       css={css({
         position: "fixed",
         inset: 0,
-        zIndex: 14000,
+        zIndex: 99999,
+        backgroundColor: "#0d1117",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
