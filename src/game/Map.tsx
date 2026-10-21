@@ -132,54 +132,18 @@ export function Map() {
         />
       </mesh>
 
-      {/* Checkpoint: Parque Principal (Inicio) */}
+      {/* Checkpoint: Parque Principal (Inicio) - Ground Plaza & Rings only */}
       <group position={[START_POS[0] - offset.x, 0.05, START_POS[2] - offset.z]}>
         {/* Spawn park plaza ring */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <circleGeometry args={[9, 32]} />
+          <circleGeometry args={[7.5, 32]} />
           <meshStandardMaterial color="#1e3a5f" roughness={0.7} />
         </mesh>
         {/* Glowing border ring */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-          <ringGeometry args={[3.8, 4.4, 32]} />
-          <meshBasicMaterial color="#38bdf8" transparent opacity={0.85} />
+          <ringGeometry args={[3.2, 3.8, 32]} />
+          <meshBasicMaterial color="#38bdf8" transparent opacity={0.8} />
         </mesh>
-
-        {/* 3D Billboard text: large and legible from any camera angle on mobile */}
-        <Billboard position={[0, 4.2, 0]}>
-          <Text
-            fontSize={1.2}
-            color="#38bdf8"
-            anchorX="center"
-            anchorY="middle"
-            outlineWidth={0.08}
-            outlineColor="#0f172a"
-          >
-            📍 Parque Principal de Anserma
-          </Text>
-        </Billboard>
-
-        {/* HTML Badge fallback with large, legible styling */}
-        <Html position={[0, 2.6, 0]} center distanceFactor={32}>
-          <div
-            style={{
-              background: "rgba(15, 23, 42, 0.92)",
-              color: "#38bdf8",
-              padding: "8px 18px",
-              borderRadius: "24px",
-              fontWeight: 800,
-              fontSize: "15px",
-              border: "2px solid #38bdf8",
-              boxShadow: "0 0 25px rgba(56, 189, 248, 0.7)",
-              whiteSpace: "nowrap",
-              userSelect: "none",
-              pointerEvents: "none",
-              textShadow: "0 2px 4px rgba(0,0,0,0.8)",
-            }}
-          >
-            🌳 Parque Principal (Inicio)
-          </div>
-        </Html>
       </group>
 
       {/* Checkpoint: Colegio (Meta) */}
@@ -195,38 +159,23 @@ export function Map() {
           <meshBasicMaterial color="#facc15" transparent opacity={0.9} />
         </mesh>
 
-        {/* 3D Billboard text for Goal */}
-        <Billboard position={[0, 4.2, 0]}>
-          <Text
-            fontSize={1.2}
-            color="#facc15"
-            anchorX="center"
-            anchorY="middle"
-            outlineWidth={0.08}
-            outlineColor="#0f172a"
-          >
-            🏫 Colegio de Occidente (Meta)
-          </Text>
-        </Billboard>
-
-        <Html position={[0, 2.6, 0]} center distanceFactor={32}>
+        <Html position={[0, 3.2, 0]} center distanceFactor={26}>
           <div
             style={{
-              background: "rgba(15, 23, 42, 0.92)",
+              background: "rgba(15, 23, 42, 0.9)",
               color: "#facc15",
-              padding: "8px 18px",
-              borderRadius: "24px",
+              padding: "6px 14px",
+              borderRadius: "20px",
               fontWeight: 800,
-              fontSize: "15px",
+              fontSize: "13px",
               border: "2px solid #facc15",
-              boxShadow: "0 0 25px rgba(250, 204, 21, 0.8)",
+              boxShadow: "0 0 20px rgba(250, 204, 21, 0.7)",
               whiteSpace: "nowrap",
               userSelect: "none",
               pointerEvents: "none",
-              textShadow: "0 2px 4px rgba(0,0,0,0.8)",
             }}
           >
-            🏫 Colegio de Occidente (Meta)
+            🏫 Colegio (Meta)
           </div>
         </Html>
       </group>

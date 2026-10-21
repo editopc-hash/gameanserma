@@ -18,42 +18,56 @@ export function Player() {
   const clips = useMemo(() => {
     const list: THREE.AnimationClip[] = [];
 
-    // Walk clip from caminar.glb
-    if (walkGltf.animations && walkGltf.animations.length > 0) {
-      const clip = walkGltf.animations[0].clone();
-      clip.name = "walk";
-      list.push(clip);
-
-      // Create an "idle" animation by slicing the first 0.1s of the walk animation
-      const idleClip = THREE.AnimationUtils.subclip(
-        walkGltf.animations[0],
-        "idle",
-        0,
-        4,
-        30
-      );
-      list.push(idleClip);
+    // 1. Idle (natural resting standing pose from Casual_Walk)
+    const idleClip =
+      walkGltf.animations.find((a) => a.name === "Casual_Walk") ||
+      walkGltf.animations[0];
+    if (idleClip) {
+      const c = idleClip.clone();
+      c.name = "idle";
+      list.push(c);
     }
 
-    // Run clip from correr.glb
-    if (runGltf.animations && runGltf.animations.length > 0) {
-      const clip = runGltf.animations[0].clone();
-      clip.name = "run";
-      list.push(clip);
+    // 2. Walk (Walking or Casual_Walk)
+    const walkClip =
+      walkGltf.animations.find((a) => a.name === "Walking") ||
+      walkGltf.animations.find((a) => a.name !== "Running") ||
+      walkGltf.animations[1] ||
+      walkGltf.animations[0];
+    if (walkClip) {
+      const c = walkClip.clone();
+      c.name = "walk";
+      list.push(c);
     }
 
-    // Win clip from ganar.glb
-    if (winGltf.animations && winGltf.animations.length > 0) {
-      const clip = winGltf.animations[0].clone();
-      clip.name = "win";
-      list.push(clip);
+    // 3. Run (Running)
+    const runClip =
+      runGltf.animations.find((a) => a.name === "Running") ||
+      runGltf.animations[0];
+    if (runClip) {
+      const c = runClip.clone();
+      c.name = "run";
+      list.push(c);
     }
 
-    // Dead clip from muerto.glb
-    if (deadGltf.animations && deadGltf.animations.length > 0) {
-      const clip = deadGltf.animations[0].clone();
-      clip.name = "dead";
-      list.push(clip);
+    // 4. Win / Celebrate (Dance)
+    const winClip =
+      winGltf.animations.find((a) => a.name.toLowerCase().includes("dance")) ||
+      winGltf.animations[0];
+    if (winClip) {
+      const c = winClip.clone();
+      c.name = "win";
+      list.push(c);
+    }
+
+    // 5. Dead / Fall (Dead)
+    const deadClip =
+      deadGltf.animations.find((a) => a.name.toLowerCase().includes("dead")) ||
+      deadGltf.animations[0];
+    if (deadClip) {
+      const c = deadClip.clone();
+      c.name = "dead";
+      list.push(c);
     }
 
     return list;
@@ -128,8 +142,8 @@ export function Player() {
     }
   }, [triggerAction, setTriggerAction]);
 
-  // Camera angles
-  const cameraAngle = useRef({ yaw: 0, pitch: 0.28 });
+  // Camera angles: yaw Math.PI positions camera behind character looking North (+Z) toward Colegio
+  const cameraAngle = useRef({ yaw: Math.PI, pitch: 0.28 });
   const isMouseDown = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
   const touchCamId = useRef<number | null>(null);
@@ -314,13 +328,18 @@ export function Player() {
     };
   }, []);
 
-  // Spawn player at Parque Principal (Inicio)
-  useEffect(() => {
+  // Spawn player at Parque Principal (Inicio) facing North towards Colegio
+  const spawnPlayer = () => {
     if (group.current) {
       group.current.position.set(START_POS[0], START_POS[1], START_POS[2]);
       group.current.rotation.set(0, 0, 0);
-      cameraAngle.current = { yaw: 0, pitch: 0.28 };
+      cameraAngle.current = { yaw: Math.PI, pitch: 0.28 };
+      specialState.current = null;
     }
+  };
+
+  useEffect(() => {
+    spawnPlayer();
   }, [resetPlayerPos]);
 
   // When game is won, trigger celebration dance
@@ -330,32 +349,36 @@ export function Player() {
     }
   }, [gameWon]);
 
-  // Handle animation switching with crossfade
+  // Handle animation switching with resting standing pose when idle
   useEffect(() => {
     if (!actions) return;
 
     const prevAction = actions[currentActionName.current];
     const nextAction = actions[animState];
 
-    if (nextAction && nextAction !== prevAction) {
-      nextAction.reset();
-
-      if (animState === "dead") {
-        nextAction.setLoop(THREE.LoopOnce, 1);
-        nextAction.clampWhenFinished = true;
+    if (nextAction) {
+      if (animState === "idle") {
+        // Natural quiet resting standing pose: freeze at frame 0 so the character stays completely still!
+        nextAction.reset();
+        nextAction.time = 0;
+        nextAction.play();
+        nextAction.paused = true;
       } else {
-        nextAction.setLoop(THREE.LoopRepeat, Infinity);
+        nextAction.paused = false;
+        if (animState === "dead") {
+          nextAction.setLoop(THREE.LoopOnce, 1);
+          nextAction.clampWhenFinished = true;
+        } else {
+          nextAction.setLoop(THREE.LoopRepeat, Infinity);
+        }
+        nextAction.fadeIn(0.2).play();
       }
 
-      nextAction.fadeIn(0.2).play();
-
-      if (prevAction) {
+      if (prevAction && prevAction !== nextAction) {
         prevAction.fadeOut(0.2);
       }
 
       currentActionName.current = animState;
-    } else if (nextAction && !nextAction.isRunning()) {
-      nextAction.play();
     }
 
     setCurrentAnimation(animState);
@@ -428,21 +451,21 @@ export function Player() {
       let moveZ = 0;
       let moveX = 0;
 
-      if (keys.current.forward) moveZ -= 1;
-      if (keys.current.backward) moveZ += 1;
+      if (keys.current.forward) moveZ += 1;
+      if (keys.current.backward) moveZ -= 1;
       if (keys.current.left) moveX -= 1;
       if (keys.current.right) moveX += 1;
 
       // Add touch joystick input
       if (hasTouchMove) {
         moveX += touchMove.x;
-        moveZ -= touchMove.y; // touchMove.y is positive forward
+        moveZ += touchMove.y; // touchMove.y is positive forward
       }
 
       const inputDir = new THREE.Vector3(moveX, 0, moveZ).normalize();
 
       // Rotate input direction by camera yaw
-      inputDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraAngle.current.yaw);
+      inputDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraAngle.current.yaw - Math.PI);
 
       // Smoothly rotate player toward movement direction
       const targetRotationY = Math.atan2(inputDir.x, inputDir.z);

@@ -104,6 +104,9 @@ export function GameView() {
   // Leaderboard modal tab selection
   const [leaderboardTab, setLeaderboardTab] = useState<"school" | "susana">("school");
 
+  // Temporary start toast: "Parque Principal de Anserma"
+  const [showStartToast, setShowStartToast] = useState(false);
+
   // Responsive mobile detection
   const [isMobile, setIsMobile] = useState(false);
   const [showControlsHelp, setShowControlsHelp] = useState(false);
@@ -120,6 +123,17 @@ export function GameView() {
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
+
+  // Show "Parque Principal" banner only at start for 5 seconds
+  useEffect(() => {
+    if (gameStarted) {
+      setShowStartToast(true);
+      const timer = setTimeout(() => {
+        setShowStartToast(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [gameStarted]);
 
   const getStatusBadge = () => {
     if (gameWon) {
@@ -211,7 +225,7 @@ export function GameView() {
       {/* Touch Joystick & Action Buttons for Mobile */}
       <TouchControls />
 
-      {/* Top Main HUD - Goal Progress, Player Name, and Timer */}
+      {/* Top Main HUD - Goal Distance, Remaining Meters, Progress Bar, and Player Timer */}
       <div
         css={css({
           position: "absolute",
@@ -234,106 +248,56 @@ export function GameView() {
           gap: "6px",
         })}
       >
-        {/* Top Info Row: Player Name, Timer, and Leaderboard Button */}
+        {/* Row 1: Objective & Distance Remaining (The original requested indicator) */}
         <div
           css={css({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             fontSize: isMobile ? "11px" : "12.5px",
+            fontWeight: 600,
           })}
         >
-          {/* Player Name */}
-          <div
-            css={css({
-              display: "flex",
-              alignItems: "center",
-              gap: "5px",
-              fontWeight: 700,
-              color: "#38bdf8",
-              maxWidth: "140px",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            })}
-          >
-            <User size={13} />
-            <span>{playerName || "Aventurero"}</span>
+          <div css={css({ display: "flex", alignItems: "center", gap: "6px" })}>
+            <Navigation size={13} color="#38bdf8" />
+            <span css={css({ color: "#e2e8f0" })}>
+              Objetivo: <strong>Colegio de Occidente</strong>
+            </span>
           </div>
 
-          {/* Speedrun Timer */}
-          <div
-            css={css({
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              background: "rgba(0, 0, 0, 0.35)",
-              padding: "2px 8px",
-              borderRadius: "12px",
-              fontWeight: 800,
-              color: "#facc15",
-              fontFamily: "monospace",
-              fontSize: isMobile ? "12px" : "13.5px",
-            })}
-          >
-            <Clock size={12} />
-            <span>{formatSec(timeElapsed)}</span>
-          </div>
-
-          {/* Zusana Status badge */}
-          {foundSuzanne && (
+          <div css={css({ display: "flex", alignItems: "center", gap: "8px" })}>
+            {foundSuzanne && (
+              <span
+                css={css({
+                  background: "rgba(245, 158, 11, 0.25)",
+                  border: "1px solid #f59e0b",
+                  borderRadius: "9999px",
+                  padding: "1px 8px",
+                  fontSize: "10px",
+                  color: "#fcd34d",
+                  fontWeight: 700,
+                })}
+              >
+                🐵 Zusana ✓
+              </span>
+            )}
             <span
               css={css({
-                background: "rgba(245, 158, 11, 0.25)",
-                border: "1px solid rgba(245, 158, 11, 0.5)",
-                borderRadius: "9999px",
-                padding: "1px 7px",
-                fontSize: "10px",
-                color: "#fcd34d",
+                color: "#facc15",
                 fontWeight: 800,
+                fontSize: isMobile ? "11.5px" : "13px",
               })}
             >
-              🐵 Zusana ✓
+              {distanceToGoal} m restantes
             </span>
-          )}
-
-          {/* Distance remaining */}
-          <span css={css({ color: "#94a3b8", fontWeight: 700, fontSize: isMobile ? "10px" : "11px" })}>
-            {distanceToGoal}m al Colegio
-          </span>
-
-          {/* Leaderboard Button */}
-          <button
-            onClick={() => {
-              setLeaderboardTab("school");
-              setShowLeaderboardModal(true);
-            }}
-            title="Ver Tabla de Clasificación"
-            css={css({
-              background: "rgba(250, 204, 21, 0.15)",
-              border: "1px solid rgba(250, 204, 21, 0.3)",
-              color: "#facc15",
-              borderRadius: "8px",
-              padding: "2px 7px",
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              fontSize: "10.5px",
-              fontWeight: 800,
-              cursor: "pointer",
-              "&:hover": { background: "rgba(250, 204, 21, 0.25)" },
-            })}
-          >
-            <Trophy size={11} />
-            <span>Top 3</span>
-          </button>
+          </div>
         </div>
 
         {/* Progress Bar */}
         <div
           css={css({
             width: "100%",
-            height: "7px",
+            height: "6px",
             background: "rgba(255, 255, 255, 0.12)",
             borderRadius: "4px",
             overflow: "hidden",
@@ -352,46 +316,92 @@ export function GameView() {
           />
         </div>
 
-        {/* Legible text: Parque Principal de Anserma vs Colegio (Meta) */}
+        {/* Sub-row: Parque Principal & Colegio + Participant Name, Stopwatch & Top 3 */}
         <div
           css={css({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            marginTop: "2px",
-            gap: "6px",
+            fontSize: isMobile ? "10px" : "11px",
+            color: "#94a3b8",
           })}
         >
-          <span
-            css={css({
-              fontSize: isMobile ? "11px" : "12px",
-              fontWeight: 800,
-              color: "#38bdf8",
-              background: "rgba(56, 189, 248, 0.15)",
-              border: "1px solid rgba(56, 189, 248, 0.35)",
-              padding: "2px 7px",
-              borderRadius: "8px",
-              whiteSpace: "nowrap",
-            })}
-          >
-            🌳 Parque Principal de Anserma
-          </span>
-          <span
-            css={css({
-              fontSize: isMobile ? "11px" : "12px",
-              fontWeight: 800,
-              color: "#facc15",
-              background: "rgba(250, 204, 21, 0.15)",
-              border: "1px solid rgba(250, 204, 21, 0.35)",
-              padding: "2px 7px",
-              borderRadius: "8px",
-              whiteSpace: "nowrap",
-            })}
-          >
-            🏫 Colegio (Meta)
-          </span>
+          <span>🌳 Parque Principal</span>
+
+          <div css={css({ display: "flex", alignItems: "center", gap: "8px" })}>
+            {playerName && (
+              <span css={css({ color: "#38bdf8", fontWeight: 700 })}>
+                👤 {playerName}
+              </span>
+            )}
+            <span
+              css={css({
+                color: "#facc15",
+                fontWeight: 700,
+                fontFamily: "monospace",
+              })}
+            >
+              ⏱️ {formatSec(timeElapsed)}
+            </span>
+            <button
+              onClick={() => {
+                setLeaderboardTab("school");
+                setShowLeaderboardModal(true);
+              }}
+              css={css({
+                background: "rgba(250, 204, 21, 0.15)",
+                border: "1px solid rgba(250, 204, 21, 0.3)",
+                color: "#facc15",
+                borderRadius: "6px",
+                padding: "1px 6px",
+                fontSize: "10px",
+                fontWeight: 700,
+                cursor: "pointer",
+                "&:hover": { background: "rgba(250, 204, 21, 0.25)" },
+              })}
+            >
+              🏆 Top 3
+            </button>
+          </div>
+
+          <span>🏫 Colegio (Meta)</span>
         </div>
       </div>
+
+      {/* Small floating banner: Parque Principal (Only visible at start, small on mobile, disappears after 5s) */}
+      {showStartToast && (
+        <div
+          css={css({
+            position: "absolute",
+            top: isMobile ? "5.8rem" : "5.4rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(15, 23, 42, 0.88)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid rgba(56, 189, 248, 0.35)",
+            borderRadius: "20px",
+            padding: "5px 14px",
+            color: "#38bdf8",
+            fontSize: isMobile ? "11.5px" : "12.5px",
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
+            zIndex: 105,
+            animation: "toastFade 0.3s ease",
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+            "@keyframes toastFade": {
+              from: { opacity: 0, transform: "translate(-50%, -6px)" },
+              to: { opacity: 1, transform: "translate(-50%, 0)" },
+            },
+          })}
+        >
+          <span>📍</span>
+          <span>Parque Principal de Anserma (Inicio)</span>
+        </div>
+      )}
 
       {/* Floating HUD Controls (Top Left) */}
       <div
@@ -523,7 +533,7 @@ export function GameView() {
         )}
       </div>
 
-      {/* Floating Status Badge (Bottom Left, above touch joystick if on mobile) */}
+      {/* Floating Status Badge */}
       <div
         css={css({
           position: "absolute",
@@ -904,7 +914,7 @@ export function GameView() {
         </div>
       )}
 
-      {/* Leaderboard Modal (Can be toggled anytime from HUD or after winning) */}
+      {/* Leaderboard Modal */}
       <LeaderboardModal
         isOpen={showLeaderboardModal}
         onClose={() => setShowLeaderboardModal(false)}
