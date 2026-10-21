@@ -1,5 +1,7 @@
 import { css, keyframes } from "@emotion/react";
 import { Space } from "../three/Space";
+import { GameView } from "../game/GameView";
+import { useGameStore } from "@/state/gameStore";
 import { FullscreenModal } from "../components/FullscreenModal";
 import { Title } from "@/components/text/Title";
 import { Description } from "@/components/text/Description";
@@ -177,127 +179,122 @@ function App() {
     checkFleetLogin();
   }, []);
 
+  const isGameMode = useGameStore((state) => state.isGameMode);
+
   return (
     <div css={css({ height: "100%", width: "100%" })}>
       <TopNav step={step} />
 
-      <FullscreenModal isOpen={steps[step] == "front"}>
-        <Column gap="1rem">
-          <Column gap="0.5rem">
-            <Title>Generate 3d map</Title>
-            <Description>
-              Tools to create 3D maps based on maps and export them in GLB
-              format
-            </Description>
-          </Column>
-          <MapComponent
-            onRemove={handleRemove}
-            onDone={handleDone}
-          ></MapComponent>
-        </Column>
-      </FullscreenModal>
+      {isGameMode ? (
+        <GameView />
+      ) : (
+        <>
+          <FullscreenModal isOpen={steps[step] == "front"}>
+            <Column gap="1rem">
+              <Column gap="0.5rem">
+                <Title>Generate 3d map</Title>
+                <Description>
+                  Tools to create 3D maps based on maps and export them in GLB
+                  format
+                </Description>
+              </Column>
+              <MapComponent
+                onRemove={handleRemove}
+                onDone={handleDone}
+              ></MapComponent>
+            </Column>
+          </FullscreenModal>
 
-      <FullscreenModal isOpen={steps[step] == "processing"}>
-        <Column gap="1rem">
-          <Column gap="0.5rem">
-            <Title>Processing</Title>
-            <Description>
-              Click Next Step to fetch building information. Once loaded, click
-              Next Step again to view the 3D scene.
-            </Description>
+          <FullscreenModal isOpen={steps[step] == "processing"}>
+            <Column gap="1rem">
+              <Column gap="0.5rem">
+                <Title>Processing</Title>
+                <Description>
+                  Click Next Step to fetch building information. Once loaded, click
+                  Next Step again to view the 3D scene.
+                </Description>
 
-            <BuildingHeights
-              buildings={buildings}
-              loading={isFetchingBuildings}
-            />
-          </Column>
-        </Column>
-      </FullscreenModal>
+                <BuildingHeights
+                  buildings={buildings}
+                  loading={isFetchingBuildings}
+                />
+              </Column>
+            </Column>
+          </FullscreenModal>
 
-      <PrevButton isShow={step != 0} onClick={handleClickPrevStep}>
-        <ChevronLeft css={IconSize} /> Prev Step
-      </PrevButton>
+          <PrevButton isShow={step != 0} onClick={handleClickPrevStep}>
+            <ChevronLeft css={IconSize} /> Prev Step
+          </PrevButton>
 
-      <NextButton
-        isShow={step != 2}
-        disabled={isNextButtonDisabled || isFetchingBuildings}
-        onClick={handleClickNextStep}
-      >
-        {isFetchingBuildings ? (
-          <>
-            <Loader2
-              css={[
-                IconSize,
-                css({ animation: `${spinAnimation} 1s linear infinite` }),
-              ]}
-            />
-            Fetching...
-          </>
-        ) : (
-          <>
-            Next Step <ChevronRight css={IconSize} />
-          </>
-        )}
-      </NextButton>
-
-      <NextButton isShow={step == 2} onClick={handleClickExport}>
-        Export GLB <Download css={IconSize} />
-      </NextButton>
-
-      <Modal isOpen={isWarnModal} onClose={() => setIsWarnModal(false)}>
-        <Column gap="0.5rem">
-          <Title>The area is too big </Title>
-          <Description>Do you want to proceed?</Description>
-          <Button
+          <NextButton
             isShow={step != 2}
-            disabled={isNextButtonDisabled}
-            onClick={() => {
-              setStep(step + 1);
-              setIsWarnModal(false);
-            }}
+            disabled={isNextButtonDisabled || isFetchingBuildings}
+            onClick={handleClickNextStep}
           >
-            Next Step <ChevronRight css={IconSize} />
-          </Button>
-        </Column>
-      </Modal>
-
-      <Modal isOpen={isExportModal} onClose={() => setIsExportModal(false)}>
-        <Column gap="0.5rem">
-          <Title>Export</Title>
-
-          <Row gap="0.5rem">
-            <Button isShow={true} onClick={exportFile}>
-              GLB Download <Download css={IconSize} />
-            </Button>
-
-            {/* {isFleetLogin ? (
-              <Button isShow={true} onClick={loadFleetSpace}>
-                Fleet Interlock
-              </Button>
+            {isFetchingBuildings ? (
+              <>
+                <Loader2
+                  css={[
+                    IconSize,
+                    css({ animation: `${spinAnimation} 1s linear infinite` }),
+                  ]}
+                />
+                Fetching...
+              </>
             ) : (
+              <>
+                Next Step <ChevronRight css={IconSize} />
+              </>
+            )}
+          </NextButton>
+
+          <NextButton isShow={step == 2} onClick={handleClickExport}>
+            Export GLB <Download css={IconSize} />
+          </NextButton>
+
+          <Modal isOpen={isWarnModal} onClose={() => setIsWarnModal(false)}>
+            <Column gap="0.5rem">
+              <Title>The area is too big </Title>
+              <Description>Do you want to proceed?</Description>
               <Button
-                isShow={true}
-                onClick={() => window.open("https://fleet.im/auth")}
+                isShow={step != 2}
+                disabled={isNextButtonDisabled}
+                onClick={() => {
+                  setStep(step + 1);
+                  setIsWarnModal(false);
+                }}
               >
-                Fleet Login
+                Next Step <ChevronRight css={IconSize} />
               </Button>
-            )} */}
-          </Row>
-        </Column>
-      </Modal>
+            </Column>
+          </Modal>
 
-      <Modal isOpen={isFleetModal} onClose={() => setIsFleetModal(false)}>
-        <Column gap="0.5rem">
-          <Title>Select Fleet Space</Title>
-          {spaceList.map((item, index) => (
-            <Button isShow={true} onClick={() => putGlbOnFleetSpace(item.id)}>
-              {item.title}
-            </Button>
-          ))}
-        </Column>
-      </Modal>
+          <Modal isOpen={isExportModal} onClose={() => setIsExportModal(false)}>
+            <Column gap="0.5rem">
+              <Title>Export</Title>
 
-      <Space></Space>
+              <Row gap="0.5rem">
+                <Button isShow={true} onClick={exportFile}>
+                  GLB Download <Download css={IconSize} />
+                </Button>
+              </Row>
+            </Column>
+          </Modal>
+
+          <Modal isOpen={isFleetModal} onClose={() => setIsFleetModal(false)}>
+            <Column gap="0.5rem">
+              <Title>Select Fleet Space</Title>
+              {spaceList.map((item, index) => (
+                <Button isShow={true} onClick={() => putGlbOnFleetSpace(item.id)}>
+                  {item.title}
+                </Button>
+              ))}
+            </Column>
+          </Modal>
+
+          <Space></Space>
+        </>
+      )}
     </div>
   );
 }

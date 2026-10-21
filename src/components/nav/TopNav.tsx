@@ -1,4 +1,5 @@
 import { useCarStore } from "@/state/carStore";
+import { useGameStore } from "@/state/gameStore";
 import { css } from "@emotion/react";
 import { DetailedHTMLProps, ButtonHTMLAttributes, useState } from "react";
 import { Modal } from "../modal/Modal";
@@ -23,6 +24,8 @@ interface ButtonProps
 export function TopNav({ step }: { step: number }) {
   const setThirdMode = useCarStore((state) => state.setThirdMode);
   const thirdMode = useCarStore((state) => state.thirdMode);
+  const isGameMode = useGameStore((state) => state.isGameMode);
+  const setIsGameMode = useGameStore((state) => state.setIsGameMode);
   const isMobile = /Mobi|Android/i.test(navigator.userAgent);
 
   const [openModal, setOpenModal] = useState(false);
@@ -49,11 +52,11 @@ export function TopNav({ step }: { step: number }) {
       >
         <div
           css={css({
-            paddingLeft: "2rem",
+            paddingLeft: isMobile ? "0.75rem" : "2rem",
             alignItems: "center",
             flexDirection: "row",
             display: "flex",
-            gap: "0.75rem",
+            gap: "0.5rem",
           })}
         >
           <span
@@ -78,7 +81,7 @@ export function TopNav({ step }: { step: number }) {
 
         <div
           css={css({
-            paddingRight: "2rem",
+            paddingRight: isMobile ? "0.75rem" : "2rem",
             display: "flex",
             flexDirection: "row",
             gap: "0.5rem",
@@ -86,15 +89,33 @@ export function TopNav({ step }: { step: number }) {
         >
           <NavButton
             isShow={true}
-            onClick={() => window.open("https://github.com/cartesiancs/map3d")}
+            onClick={() => setIsGameMode(!isGameMode)}
+            style={{
+              backgroundColor: isGameMode ? "#0284c7" : "#f1f5f9",
+              color: isGameMode ? "#ffffff" : "#0f172a",
+              fontWeight: "600",
+              border: isGameMode ? "1px solid #38bdf8" : "1px solid rgba(0,0,0,0.1)",
+              boxShadow: isGameMode ? "0 0 12px rgba(56, 189, 248, 0.4)" : "none",
+            }}
           >
-            GitHub
-          </NavButton>
-          <NavButton isShow={step >= 1} onClick={() => setOpenModal(true)}>
-            Options
+            {isGameMode ? "🎮 Modo: JUGAR" : "🗺️ Modo: Generador"}
           </NavButton>
 
-          {!isMobile && (
+          {!isGameMode && (
+            <>
+              <NavButton
+                isShow={true}
+                onClick={() => window.open("https://github.com/cartesiancs/map3d")}
+              >
+                GitHub
+              </NavButton>
+              <NavButton isShow={step >= 1} onClick={() => setOpenModal(true)}>
+                Options
+              </NavButton>
+            </>
+          )}
+
+          {!isMobile && !isGameMode && (
             <>
               {thirdMode ? (
                 <NavButton
