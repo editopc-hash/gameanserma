@@ -112,6 +112,10 @@ type GameStore = {
   cameraDistance: number;
   setCameraDistance: (dist: number) => void;
   toggleCameraDistance: () => void;
+
+  // Performance / Optimization Mode (removes shadows, reflections, lowers dpr)
+  performanceMode: boolean;
+  togglePerformanceMode: () => void;
 };
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -206,6 +210,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   toggleCameraDistance: () =>
     set((state) => ({
       cameraDistance: state.cameraDistance < 2.0 ? 2.8 : state.cameraDistance < 3.8 ? 4.8 : 1.65,
+    })),
+
+  // Performance / Optimization Mode
+  performanceMode: false,
+  togglePerformanceMode: () =>
+    set((state) => ({
+      performanceMode: !state.performanceMode,
     })),
 }));
 

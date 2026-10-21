@@ -51,10 +51,12 @@ export function GameView() {
   const distanceToGoal = useGameStore((s) => s.distanceToGoal);
   const progressPercent = useGameStore((s) => s.progressPercent);
 
-  // Dynamic Camera Distance (Zoom)
+  // Dynamic Camera Distance (Zoom) & Performance Mode
   const cameraDistance = useGameStore((s) => s.cameraDistance);
   const setCameraDistance = useGameStore((s) => s.setCameraDistance);
   const toggleCameraDistance = useGameStore((s) => s.toggleCameraDistance);
+  const performanceMode = useGameStore((s) => s.performanceMode);
+  const togglePerformanceMode = useGameStore((s) => s.togglePerformanceMode);
 
   // Player and speedrun state
   const playerName = useGameStore((s) => s.playerName);
@@ -143,25 +145,25 @@ export function GameView() {
     >
       {/* 3D Scene - loads silently behind the preloader without any ugly 'Cargando' text */}
       <Canvas
-        shadows
+        shadows={!performanceMode}
         camera={{ position: [0, 2, -95.6], fov: 48, near: 0.1, far: 2000 }}
-        dpr={[1, Math.min(typeof window !== "undefined" ? window.devicePixelRatio : 1, 1.5)]}
-        gl={{ powerPreference: "high-performance", antialias: true }}
+        dpr={performanceMode ? 1 : [1, Math.min(typeof window !== "undefined" ? window.devicePixelRatio : 1, 1.5)]}
+        gl={{ powerPreference: "high-performance", antialias: !performanceMode }}
       >
         <fog attach="fog" args={["#cde3f7", 80, 750]} />
 
         {/* Ambient & sky light */}
-        <ambientLight intensity={0.65} />
+        <ambientLight intensity={performanceMode ? 1.15 : 0.65} />
         <hemisphereLight
           args={["#b1e1ff", "#3a342d", 0.75]}
           position={[0, 50, 0]}
         />
 
-        {/* Primary sunlight with soft shadows */}
+        {/* Primary sunlight with soft shadows (disabled in performanceMode) */}
         <directionalLight
-          castShadow
+          castShadow={!performanceMode}
           position={[120, 160, 90]}
-          intensity={2.4}
+          intensity={performanceMode ? 1.9 : 2.4}
           shadow-mapSize-width={1024}
           shadow-mapSize-height={1024}
           shadow-camera-near={0.5}
@@ -182,7 +184,7 @@ export function GameView() {
           turbidity={8}
           rayleigh={4}
         />
-        <Environment preset="city" />
+        {!performanceMode && <Environment preset="city" />}
 
         {/* 3D World - silent background load */}
         <Suspense fallback={null}>
@@ -535,6 +537,56 @@ export function GameView() {
                   <X size={14} />
                 </button>
               </div>
+            </div>
+
+            {/* Optimization / Performance Toggle (Shadows, HDRI, DPR) */}
+            <div
+              css={css({
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "8px",
+                marginBottom: "8px",
+                background: performanceMode
+                  ? "rgba(34, 197, 94, 0.14)"
+                  : "rgba(255, 255, 255, 0.04)",
+                border: performanceMode
+                  ? "1px solid rgba(34, 197, 94, 0.45)"
+                  : "1px solid rgba(255, 255, 255, 0.06)",
+                padding: "8px 10px",
+                borderRadius: "10px",
+                transition: "all 0.2s ease",
+              })}
+            >
+              <div css={css({ display: "flex", flexDirection: "column", gap: "1px" })}>
+                <span css={css({ fontSize: "11px", color: "#cbd5e1", fontWeight: 700 })}>
+                  ⚡ Optimización (Fluidez):
+                </span>
+                <span css={css({ fontSize: "9.5px", color: "#94a3b8" })}>
+                  {performanceMode ? "Sin sombras ni reflejos pesados" : "Sombras y gráficos completos"}
+                </span>
+              </div>
+              <button
+                onClick={togglePerformanceMode}
+                css={css({
+                  background: performanceMode
+                    ? "linear-gradient(135deg, #22c55e, #16a34a)"
+                    : "rgba(255, 255, 255, 0.12)",
+                  border: performanceMode
+                    ? "1px solid #86efac"
+                    : "1px solid rgba(255, 255, 255, 0.2)",
+                  color: "white",
+                  borderRadius: "8px",
+                  padding: "5px 10px",
+                  fontSize: "10.5px",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  transition: "all 0.15s ease",
+                })}
+              >
+                {performanceMode ? "ACTIVO ✓" : "ACTIVAR"}
+              </button>
             </div>
 
             {/* Camera Distance Slider & -/+ Buttons */}

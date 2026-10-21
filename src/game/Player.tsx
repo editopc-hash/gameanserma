@@ -76,17 +76,19 @@ export function Player() {
 
   const { actions } = useAnimations(clips, group);
 
-  // Enable shadows on the player model
+  // Game store
+  const performanceMode = useGameStore((s) => s.performanceMode);
+
+  // Enable/disable shadows on the player model based on performanceMode
   useEffect(() => {
     walkGltf.scene.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
+        child.castShadow = !performanceMode;
+        child.receiveShadow = !performanceMode;
       }
     });
-  }, [walkGltf]);
+  }, [walkGltf, performanceMode]);
 
-  // Game store
   const setCurrentAnimation = useGameStore((s) => s.setCurrentAnimation);
   const setSpeed = useGameStore((s) => s.setSpeed);
   const resetPlayerPos = useGameStore((s) => s.resetPlayerPos);
@@ -601,7 +603,7 @@ export function Player() {
       player.rotation.y += diff * Math.min(1, delta * 14);
 
       // --- SOLID MULTI-DIRECTIONAL WALL COLLISION & SLIDING ---
-      const checkHeights = [0.55, 1.1];
+      const checkHeights = performanceMode ? [0.85] : [0.55, 1.1];
 
       // 1. Push-back: prevent penetration into walls from all 8 surrounding directions
       for (const h of checkHeights) {

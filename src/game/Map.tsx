@@ -46,9 +46,20 @@ export function Map() {
   const { scene } = useGLTF(modelUrl);
   const mapRef = useRef<THREE.Group>(null);
   const setSuzannePos = useGameStore((s) => s.setSuzannePos);
+  const performanceMode = useGameStore((s) => s.performanceMode);
 
   // Center the map at [0, 0, 0]
   const offset = useMemo(() => new THREE.Vector3(0, 0, 0), []);
+
+  useEffect(() => {
+    if (!scene) return;
+    scene.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        child.castShadow = !performanceMode;
+        child.receiveShadow = !performanceMode;
+      }
+    });
+  }, [scene, performanceMode]);
 
   useEffect(() => {
     if (!scene) return;
@@ -57,8 +68,8 @@ export function Map() {
     scene.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
+        mesh.castShadow = !performanceMode;
+        mesh.receiveShadow = !performanceMode;
 
         // Check if this mesh or any parent is Suzanne / Zusana
         const isSuzanne =
