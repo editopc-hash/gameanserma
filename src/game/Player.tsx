@@ -153,9 +153,33 @@ export function Player() {
     []
   );
   const obstacleRaycaster = useMemo(
-    () => new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, 0, 1), 0, 3.0),
+    () => new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, 0, 1), 0, 4.0),
     []
   );
+
+  // Cache building obstacle meshes for ultra-fast and reliable collision
+  const obstacleMeshesRef = useRef<THREE.Mesh[]>([]);
+
+  useEffect(() => {
+    const updateObstacles = () => {
+      const list: THREE.Mesh[] = [];
+      scene.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh && child.userData?.isObstacle) {
+          list.push(child as THREE.Mesh);
+        }
+      });
+      if (list.length > 0) {
+        obstacleMeshesRef.current = list;
+      }
+    };
+    updateObstacles();
+    const t1 = setTimeout(updateObstacles, 600);
+    const t2 = setTimeout(updateObstacles, 2000);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [scene]);
 
   // Keyboard handlers
   useEffect(() => {
@@ -413,6 +437,9 @@ export function Player() {
     }
     setSpeed(moveSpeed);
 
+    const obstacles = obstacleMeshesRef.current.length > 0 ? obstacleMeshesRef.current : scene.children;
+    const MIN_WALL_DIST = 1.15; // Generous collision boundary: stops player cleanly outside walls
+
     if (moveSpeed > 0) {
       let moveZ = 0;
       let moveX = 0;
@@ -441,77 +468,80 @@ export function Player() {
       ) - Math.PI;
       player.rotation.y += diff * Math.min(1, delta * 14);
 
-      // Solid collision detection with generous safe wall buffer (prevents sinking into walls)
-      const moveDistance = moveSpeed * delta;
-      const SAFE_WALL_DIST = 0.95; // Keeps character safely outside wall geometry
-      const forwardThreshold = SAFE_WALL_DIST + moveDistance;
-
-      // Cast at chest (1.05m) and waist (0.55m)
-      const rayOrigins = [
-        player.position.clone().add(new THREE.Vector3(0, 1.05, 0)),
-        player.position.clone().add(new THREE.Vector3(0, 0.55, 0)),
+      // --- SOLID MULTI-DIRECTIONAL WALL COLLISION & SLIDING ---
+      const checkHeights = [0.55, 1.1]; // waist and chest heights
+      const radialDirs = [
+        new THREE.Vector3(1, 0, 0),
+        new THREE.Vector3(-1, 0, 0),
+        new THREE.Vector3(0, 0, 1),
+        new THREE.Vector3(0, 0, -1),
+        new THREE.Vector3(0.707, 0, 0.707),
+        new THREE.Vector3(-0.707, 0, 0.707),
+        new THREE.Vector3(0.707, 0, -0.707),
+        new THREE.Vector3(-0.707, 0, -0.707),
       ];
 
-      let closestObstacleDist = Infinity;
-      for (const origin of rayOrigins) {
-        obstacleRaycaster.set(origin, inputDir);
-        const hits = obstacleRaycaster.intersectObjects(scene.children, true);
-        const hit = hits.find(
-          (h) => h.object.userData?.isObstacle && h.distance < forwardThreshold
-        );
-        if (hit && hit.distance < closestObstacleDist) {
-          closestObstacleDist = hit.distance;
+      // 1. Push-back: prevent ANY penetration into walls from all 8 surrounding directions
+      for (const h of checkHeights) {
+        const origin = player.position.clone().add(new THREE.Vector3(0, h, 0));
+        for (const dir of radialDirs) {
+          obstacleRaycaster.set(origin, dir);
+          obstacleRaycaster.far = MIN_WALL_DIST;
+          const hits = obstacleRaycaster.intersectObjects(obstacles, true);
+          const obstacleHit = hits.find(
+            (hit) => hit.object.userData?.isObstacle && hit.distance < MIN_WALL_DIST
+          );
+          if (obstacleHit) {
+            const pushDist = (MIN_WALL_DIST - obstacleHit.distance) * 0.5;
+            player.position.addScaledVector(dir, -pushDist);
+          }
         }
       }
 
-      if (closestObstacleDist > forwardThreshold) {
-        // Path is completely clear forward
-        player.position.addScaledVector(inputDir, moveDistance);
-      } else {
-        // Move only the safe remaining distance before hitting the buffer
-        const safeForwardStep = Math.max(0, closestObstacleDist - SAFE_WALL_DIST);
-        if (safeForwardStep > 0.001) {
-          player.position.addScaledVector(inputDir, safeForwardStep);
-        }
+      // 2. Wall sliding: cancel velocity component pointing into nearby walls
+      let moveVector = inputDir.clone().multiplyScalar(moveSpeed * delta);
+      const chestOrigin = player.position.clone().add(new THREE.Vector3(0, 0.85, 0));
 
-        // Active push-back if player is already closer than safe distance
-        if (closestObstacleDist < SAFE_WALL_DIST - 0.05) {
-          const pushBack = (SAFE_WALL_DIST - closestObstacleDist) * 0.4;
-          player.position.addScaledVector(inputDir, -pushBack);
+      for (const dir of radialDirs) {
+        const dot = moveVector.dot(dir);
+        if (dot > 0) {
+          obstacleRaycaster.set(chestOrigin, dir);
+          obstacleRaycaster.far = MIN_WALL_DIST + 0.35;
+          const hits = obstacleRaycaster.intersectObjects(obstacles, true);
+          const hit = hits.find(
+            (h) => h.object.userData?.isObstacle && h.distance < MIN_WALL_DIST + 0.35
+          );
+          if (hit) {
+            // Cancel movement into the wall, keeping only tangent component
+            moveVector.sub(dir.clone().multiplyScalar(dot));
+          }
         }
+      }
 
-        // Smooth sliding along X axis
-        if (Math.abs(inputDir.x) > 0.1) {
-          const xDir = new THREE.Vector3(Math.sign(inputDir.x), 0, 0);
-          let blockedX = false;
-          for (const origin of rayOrigins) {
-            obstacleRaycaster.set(origin, xDir);
-            const hitsX = obstacleRaycaster.intersectObjects(scene.children, true);
-            if (hitsX.some((h) => h.object.userData?.isObstacle && h.distance < SAFE_WALL_DIST)) {
-              blockedX = true;
-              break;
+      // 3. Final forward path verification before applying movement
+      if (moveVector.lengthSq() > 0.00001) {
+        const moveDir = moveVector.clone().normalize();
+        const moveLen = moveVector.length();
+
+        let maxAllowedDist = moveLen;
+        for (const h of checkHeights) {
+          const rayOrigin = player.position.clone().add(new THREE.Vector3(0, h, 0));
+          obstacleRaycaster.set(rayOrigin, moveDir);
+          obstacleRaycaster.far = moveLen + MIN_WALL_DIST;
+          const forwardHits = obstacleRaycaster.intersectObjects(obstacles, true);
+          const forwardHit = forwardHits.find(
+            (h) => h.object.userData?.isObstacle && h.distance < moveLen + MIN_WALL_DIST
+          );
+          if (forwardHit) {
+            const safeDist = Math.max(0, forwardHit.distance - MIN_WALL_DIST);
+            if (safeDist < maxAllowedDist) {
+              maxAllowedDist = safeDist;
             }
           }
-          if (!blockedX) {
-            player.position.x += inputDir.x * moveDistance;
-          }
         }
 
-        // Smooth sliding along Z axis
-        if (Math.abs(inputDir.z) > 0.1) {
-          const zDir = new THREE.Vector3(0, 0, Math.sign(inputDir.z));
-          let blockedZ = false;
-          for (const origin of rayOrigins) {
-            obstacleRaycaster.set(origin, zDir);
-            const hitsZ = obstacleRaycaster.intersectObjects(scene.children, true);
-            if (hitsZ.some((h) => h.object.userData?.isObstacle && h.distance < SAFE_WALL_DIST)) {
-              blockedZ = true;
-              break;
-            }
-          }
-          if (!blockedZ) {
-            player.position.z += inputDir.z * moveDistance;
-          }
+        if (maxAllowedDist > 0.001) {
+          player.position.addScaledVector(moveDir, maxAllowedDist);
         }
       }
 
@@ -563,24 +593,35 @@ export function Player() {
       }
     }
 
-    // Smooth third person camera following behind player
-    const cameraDist = 5.2;
+    // Closer third-person camera (3.2m instead of 5.2m for an intimate, immersive view)
+    const cameraDist = 3.2;
     const camOffset = new THREE.Vector3(
       Math.sin(cameraAngle.current.yaw) *
         Math.cos(cameraAngle.current.pitch) *
         cameraDist,
-      Math.sin(cameraAngle.current.pitch) * cameraDist + 1.2,
+      Math.sin(cameraAngle.current.pitch) * cameraDist + 0.95,
       Math.cos(cameraAngle.current.yaw) *
         Math.cos(cameraAngle.current.pitch) *
         cameraDist
     );
 
-    const desiredCamPos = player.position.clone().add(camOffset);
-    camera.position.lerp(desiredCamPos, 0.1);
-
     const lookTarget = player.position
       .clone()
-      .add(new THREE.Vector3(0, 1.4, 0));
+      .add(new THREE.Vector3(0, 1.25, 0));
+
+    // Camera occlusion: pull camera forward if a building is directly behind the character
+    let actualCamDist = cameraDist;
+    const camRayDir = camOffset.clone().normalize();
+    obstacleRaycaster.set(lookTarget, camRayDir);
+    obstacleRaycaster.far = cameraDist;
+    const camHits = obstacleRaycaster.intersectObjects(obstacles, true);
+    const camWallHit = camHits.find((h) => h.object.userData?.isObstacle && h.distance < cameraDist);
+    if (camWallHit) {
+      actualCamDist = Math.max(1.4, camWallHit.distance - 0.35);
+    }
+
+    const desiredCamPos = lookTarget.clone().add(camRayDir.multiplyScalar(actualCamDist));
+    camera.position.lerp(desiredCamPos, 0.15);
     camera.lookAt(lookTarget);
   });
 
