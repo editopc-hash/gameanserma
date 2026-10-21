@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useRef, useEffect, useState, useMemo } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useAnimations, useGLTF } from "@react-three/drei";
+import { useGLTF, useAnimations } from "@react-three/drei";
 import * as THREE from "three";
 import { AnimationState, useGameStore, START_POS, GOAL_POS } from "@/state/gameStore";
 
@@ -18,66 +18,53 @@ export function Player() {
   const clips = useMemo(() => {
     const list: THREE.AnimationClip[] = [];
 
-    // 1. Idle (use Casual_Walk)
-    const idleClip =
-      walkGltf.animations.find((a) => a.name === "Casual_Walk") ||
-      walkGltf.animations[0];
-    if (idleClip) {
-      const c = idleClip.clone();
-      c.name = "idle";
-      list.push(c);
+    // Walk clip from caminar.glb
+    if (walkGltf.animations && walkGltf.animations.length > 0) {
+      const clip = walkGltf.animations[0].clone();
+      clip.name = "walk";
+      list.push(clip);
+
+      // Create an "idle" animation by slicing the first 0.1s of the walk animation
+      const idleClip = THREE.AnimationUtils.subclip(
+        walkGltf.animations[0],
+        "idle",
+        0,
+        4,
+        30
+      );
+      list.push(idleClip);
     }
 
-    // 2. Walk (Walking)
-    const walkClip =
-      walkGltf.animations.find((a) => a.name === "Walking") ||
-      walkGltf.animations.find((a) => a.name !== "Casual_Walk") ||
-      walkGltf.animations[0];
-    if (walkClip) {
-      const c = walkClip.clone();
-      c.name = "walk";
-      list.push(c);
+    // Run clip from correr.glb
+    if (runGltf.animations && runGltf.animations.length > 0) {
+      const clip = runGltf.animations[0].clone();
+      clip.name = "run";
+      list.push(clip);
     }
 
-    // 3. Run (Running)
-    const runClip =
-      runGltf.animations.find((a) => a.name === "Running") ||
-      runGltf.animations[0];
-    if (runClip) {
-      const c = runClip.clone();
-      c.name = "run";
-      list.push(c);
+    // Win clip from ganar.glb
+    if (winGltf.animations && winGltf.animations.length > 0) {
+      const clip = winGltf.animations[0].clone();
+      clip.name = "win";
+      list.push(clip);
     }
 
-    // 4. Win / Celebrate (All_Night_Dance)
-    const winClip =
-      winGltf.animations.find((a) => a.name === "All_Night_Dance") ||
-      winGltf.animations.find((a) => a.name.toLowerCase().includes("dance")) ||
-      winGltf.animations[2];
-    if (winClip) {
-      const c = winClip.clone();
-      c.name = "win";
-      list.push(c);
-    }
-
-    // 5. Dead / Fall (Dead)
-    const deadClip =
-      deadGltf.animations.find((a) => a.name === "Dead") ||
-      deadGltf.animations.find((a) => a.name.toLowerCase().includes("dead")) ||
-      deadGltf.animations[3];
-    if (deadClip) {
-      const c = deadClip.clone();
-      c.name = "dead";
-      list.push(c);
+    // Dead clip from muerto.glb
+    if (deadGltf.animations && deadGltf.animations.length > 0) {
+      const clip = deadGltf.animations[0].clone();
+      clip.name = "dead";
+      list.push(clip);
     }
 
     return list;
   }, [walkGltf, runGltf, winGltf, deadGltf]);
 
+  // Bind animation mixer
   const { actions } = useAnimations(clips, group);
 
-  // Enable shadows on the player model
+  // Enable shadows on player mesh
   useEffect(() => {
+    if (!walkGltf.scene) return;
     walkGltf.scene.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         child.castShadow = true;
@@ -94,6 +81,11 @@ export function Player() {
   const setGameWon = useGameStore((s) => s.setGameWon);
   const setDistanceToGoal = useGameStore((s) => s.setDistanceToGoal);
   const setProgressPercent = useGameStore((s) => s.setProgressPercent);
+
+  // Game start and speedrun timers
+  const gameStarted = useGameStore((s) => s.gameStarted);
+  const startTime = useGameStore((s) => s.startTime);
+  const setTimeElapsed = useGameStore((s) => s.setTimeElapsed);
 
   // Zusana Easter Egg hooks
   const suzannePos = useGameStore((s) => s.suzannePos);
@@ -136,24 +128,40 @@ export function Player() {
     }
   }, [triggerAction, setTriggerAction]);
 
-  // Camera angles: default yaw = Math.PI to look North towards Colegio
-  const cameraAngle = useRef({ yaw: Math.PI, pitch: 0.28 });
+  // Camera angles
+  const cameraAngle = useRef({ yaw: 0, pitch: 0.28 });
   const isMouseDown = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
-
-  // Camera touch swipe tracking
   const touchCamId = useRef<number | null>(null);
   const lastTouchCamPos = useRef({ x: 0, y: 0 });
 
-  // Raycasters for collision & ground height
+  // Raycasters
   const downRaycaster = useMemo(
     () => new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 0, 15),
     []
   );
   const obstacleRaycaster = useMemo(
-    () => new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, 0, 1), 0, 1.0),
+    () => new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, 0, 1), 0, 5),
     []
   );
+
+  // Cached obstacle meshes for ultra-fast and reliable collision
+  const obstacleMeshesRef = useRef<THREE.Mesh[]>([]);
+
+  useEffect(() => {
+    const updateObstacles = () => {
+      const list: THREE.Mesh[] = [];
+      scene.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh && child.userData?.isObstacle) {
+          list.push(child as THREE.Mesh);
+        }
+      });
+      obstacleMeshesRef.current = list;
+    };
+    updateObstacles();
+    const timer = setTimeout(updateObstacles, 1500);
+    return () => clearTimeout(timer);
+  }, [scene]);
 
   // Keyboard handlers
   useEffect(() => {
@@ -241,7 +249,6 @@ export function Player() {
     const onTouchStart = (e: TouchEvent) => {
       for (let i = 0; i < e.touches.length; i++) {
         const touch = e.touches[i];
-        // Only accept touch if on the upper half or right-upper quadrant (away from virtual joystick)
         const isNearJoystick = touch.clientX < 150 && touch.clientY > window.innerHeight - 170;
         const isNearButtons = touch.clientX > window.innerWidth - 150 && touch.clientY > window.innerHeight - 170;
 
@@ -255,8 +262,8 @@ export function Player() {
 
     const onTouchMove = (e: TouchEvent) => {
       if (touchCamId.current === null) return;
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const touch = e.changedTouches[i];
+      for (let i = 0; i < e.touches.length; i++) {
+        const touch = e.touches[i];
         if (touch.identifier === touchCamId.current) {
           const dx = touch.clientX - lastTouchCamPos.current.x;
           const dy = touch.clientY - lastTouchCamPos.current.y;
@@ -274,11 +281,15 @@ export function Player() {
 
     const onTouchEnd = (e: TouchEvent) => {
       if (touchCamId.current === null) return;
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        if (e.changedTouches[i].identifier === touchCamId.current) {
-          touchCamId.current = null;
+      let stillPresent = false;
+      for (let i = 0; i < e.touches.length; i++) {
+        if (e.touches[i].identifier === touchCamId.current) {
+          stillPresent = true;
           break;
         }
+      }
+      if (!stillPresent) {
+        touchCamId.current = null;
       }
     };
 
@@ -304,17 +315,12 @@ export function Player() {
   }, []);
 
   // Spawn player at Parque Principal (Inicio)
-  const spawnPlayer = () => {
+  useEffect(() => {
     if (group.current) {
       group.current.position.set(START_POS[0], START_POS[1], START_POS[2]);
-      group.current.rotation.set(0, 0, 0); // Face North toward Colegio
-      cameraAngle.current = { yaw: Math.PI, pitch: 0.28 };
-      specialState.current = null;
+      group.current.rotation.set(0, 0, 0);
+      cameraAngle.current = { yaw: 0, pitch: 0.28 };
     }
-  };
-
-  useEffect(() => {
-    spawnPlayer();
   }, [resetPlayerPos]);
 
   // When game is won, trigger celebration dance
@@ -355,11 +361,26 @@ export function Player() {
     setCurrentAnimation(animState);
   }, [animState, actions, setCurrentAnimation]);
 
+  // Helper function to check obstacle ray hits
+  const checkObstacleHit = (origin: THREE.Vector3, direction: THREE.Vector3, maxDist: number): boolean => {
+    obstacleRaycaster.set(origin, direction);
+    obstacleRaycaster.far = maxDist;
+
+    const targets = obstacleMeshesRef.current.length > 0 ? obstacleMeshesRef.current : scene.children;
+    const hits = obstacleRaycaster.intersectObjects(targets, true);
+    return hits.some((h) => h.object.userData?.isObstacle && h.distance <= maxDist);
+  };
+
   // Frame update
   useFrame((_, delta) => {
     if (!group.current) return;
 
     const player = group.current;
+
+    // Timer update
+    if (gameStarted && !gameWon && startTime) {
+      setTimeElapsed((Date.now() - startTime) / 1000);
+    }
 
     // Movement from keyboard OR touch joystick
     const hasKeyboardMove =
@@ -371,7 +392,7 @@ export function Player() {
     const hasTouchMove =
       Math.abs(touchMove.x) > 0.08 || Math.abs(touchMove.y) > 0.08;
 
-    const isMoving = hasKeyboardMove || hasTouchMove;
+    const isMoving = (hasKeyboardMove || hasTouchMove) && gameStarted;
 
     // Clear win or dead state if player starts moving
     if (isMoving && specialState.current !== null && !gameWon) {
@@ -399,7 +420,7 @@ export function Player() {
     // Velocity & movement
     let moveSpeed = 0;
     if (isMoving && specialState.current === null && !gameWon) {
-      moveSpeed = isRunning ? 9.5 : 4.2;
+      moveSpeed = isRunning ? 9.2 : 4.2;
     }
     setSpeed(moveSpeed);
 
@@ -431,22 +452,64 @@ export function Player() {
       ) - Math.PI;
       player.rotation.y += diff * Math.min(1, delta * 14);
 
-      // Obstacle collision check using Raycaster
       const moveDistance = moveSpeed * delta;
-      const rayOrigin = player.position.clone().add(new THREE.Vector3(0, 0.9, 0));
-      obstacleRaycaster.set(rayOrigin, inputDir);
+      const dx = inputDir.x * moveDistance;
+      const dz = inputDir.z * moveDistance;
 
-      const intersects = obstacleRaycaster.intersectObjects(scene.children, true);
-      const obstacleHit = intersects.find(
-        (hit) => hit.object.userData?.isObstacle && hit.distance < 0.65
-      );
+      // Multi-ray collision detection with decoupled X and Z axes (wall-sliding)
+      const heights = [0.35, 0.85, 1.4];
+      const sideOffsets = [-0.32, 0, 0.32];
 
-      if (!obstacleHit) {
-        player.position.addScaledVector(inputDir, moveDistance);
+      // 1. Test X-axis movement
+      if (Math.abs(dx) > 0.0001) {
+        const dirX = new THREE.Vector3(Math.sign(dx), 0, 0);
+        const testDistX = Math.abs(dx) + 0.48;
+        let blockedX = false;
+
+        for (const h of heights) {
+          for (const s of sideOffsets) {
+            const rayOrigin = new THREE.Vector3(player.position.x, player.position.y + h, player.position.z + s);
+            if (checkObstacleHit(rayOrigin, dirX, testDistX)) {
+              blockedX = true;
+              break;
+            }
+          }
+          if (blockedX) break;
+        }
+
+        if (!blockedX) {
+          player.position.x += dx;
+        }
       }
+
+      // 2. Test Z-axis movement
+      if (Math.abs(dz) > 0.0001) {
+        const dirZ = new THREE.Vector3(0, 0, Math.sign(dz));
+        const testDistZ = Math.abs(dz) + 0.48;
+        let blockedZ = false;
+
+        for (const h of heights) {
+          for (const s of sideOffsets) {
+            const rayOrigin = new THREE.Vector3(player.position.x + s, player.position.y + h, player.position.z);
+            if (checkObstacleHit(rayOrigin, dirZ, testDistZ)) {
+              blockedZ = true;
+              break;
+            }
+          }
+          if (blockedZ) break;
+        }
+
+        if (!blockedZ) {
+          player.position.z += dz;
+        }
+      }
+
+      // Boundary clamp to map limits
+      player.position.x = Math.max(-100, Math.min(100, player.position.x));
+      player.position.z = Math.max(-125, Math.min(125, player.position.z));
     }
 
-    // Ground raycasting: ONLY streets and ground plane, NEVER buildings
+    // Ground raycasting: streets and ground plane
     const downOrigin = player.position.clone().add(new THREE.Vector3(0, 3, 0));
     downRaycaster.set(downOrigin, new THREE.Vector3(0, -1, 0));
     const groundHits = downRaycaster.intersectObjects(scene.children, true);

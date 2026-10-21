@@ -5,7 +5,14 @@ import { css } from "@emotion/react";
 import { Map } from "./Map";
 import { Player } from "./Player";
 import { TouchControls } from "./TouchControls";
-import { useGameStore } from "@/state/gameStore";
+import { LeaderboardModal } from "./LeaderboardModal";
+import { PreloadAndIntroModal } from "./PreloadAndIntroModal";
+import {
+  useGameStore,
+  getLeaderboard,
+  DEFAULT_SCHOOL_RECORDS,
+  DEFAULT_SUSANA_RECORDS,
+} from "@/state/gameStore";
 import {
   Gamepad2,
   RotateCcw,
@@ -19,6 +26,9 @@ import {
   ChevronUp,
   Smile,
   X,
+  Trophy,
+  Clock,
+  User,
 } from "lucide-react";
 
 function Loader() {
@@ -60,6 +70,15 @@ function Loader() {
   );
 }
 
+function formatSec(sec: number): string {
+  if (sec < 60) {
+    return `${sec.toFixed(1)}s`;
+  }
+  const m = Math.floor(sec / 60);
+  const s = (sec % 60).toFixed(1);
+  return `${m}m ${s}s`;
+}
+
 export function GameView() {
   const currentAnimation = useGameStore((s) => s.currentAnimation);
   const speed = useGameStore((s) => s.speed);
@@ -68,10 +87,22 @@ export function GameView() {
   const distanceToGoal = useGameStore((s) => s.distanceToGoal);
   const progressPercent = useGameStore((s) => s.progressPercent);
 
+  // Player and speedrun state
+  const playerName = useGameStore((s) => s.playerName);
+  const gameStarted = useGameStore((s) => s.gameStarted);
+  const timeElapsed = useGameStore((s) => s.timeElapsed);
+  const schoolTime = useGameStore((s) => s.schoolTime);
+  const susanaTime = useGameStore((s) => s.susanaTime);
+  const showLeaderboardModal = useGameStore((s) => s.showLeaderboardModal);
+  const setShowLeaderboardModal = useGameStore((s) => s.setShowLeaderboardModal);
+
   // Zusana Easter Egg
   const foundSuzanne = useGameStore((s) => s.foundSuzanne);
   const showSuzanneModal = useGameStore((s) => s.showSuzanneModal);
   const setShowSuzanneModal = useGameStore((s) => s.setShowSuzanneModal);
+
+  // Leaderboard modal tab selection
+  const [leaderboardTab, setLeaderboardTab] = useState<"school" | "susana">("school");
 
   // Responsive mobile detection
   const [isMobile, setIsMobile] = useState(false);
@@ -110,6 +141,10 @@ export function GameView() {
 
   const status = getStatusBadge();
 
+  // Top records preview for modals
+  const topSchoolRecords = getLeaderboard("anserma_school_leaderboard", DEFAULT_SCHOOL_RECORDS).slice(0, 3);
+  const topSusanaRecords = getLeaderboard("anserma_susana_leaderboard", DEFAULT_SUSANA_RECORDS).slice(0, 3);
+
   return (
     <div
       css={css({
@@ -123,6 +158,7 @@ export function GameView() {
         WebkitUserSelect: "none",
       })}
     >
+      {/* 3D Scene */}
       <Canvas
         shadows
         camera={{ position: [0, 5, -88], fov: 60, near: 0.1, far: 2000 }}
@@ -158,79 +194,139 @@ export function GameView() {
         <Sky
           distance={450000}
           sunPosition={[120, 160, 90]}
-          inclination={0.45}
+          inclination={0.48}
           azimuth={0.25}
+          turbidity={8}
+          rayleigh={4}
         />
-        <Environment preset="city" environmentIntensity={0.65} />
+        <Environment preset="city" />
 
+        {/* 3D World */}
         <Suspense fallback={<Loader />}>
           <Map />
           <Player />
         </Suspense>
       </Canvas>
 
-      {/* Virtual On-Screen Joystick & Action Buttons for Mobile */}
+      {/* Touch Joystick & Action Buttons for Mobile */}
       <TouchControls />
 
-      {/* Top Center Mission & Progress HUD */}
+      {/* Top Main HUD - Goal Progress, Player Name, and Timer */}
       <div
         css={css({
           position: "absolute",
-          top: isMobile ? "3.6rem" : "4.0rem",
+          top: "1rem",
           left: "50%",
           transform: "translateX(-50%)",
           background: "rgba(15, 23, 42, 0.88)",
           backdropFilter: "blur(14px)",
-          border: "1px solid rgba(255, 255, 255, 0.15)",
-          borderRadius: "16px",
-          padding: isMobile ? "8px 16px" : "10px 24px",
+          border: "1px solid rgba(255, 255, 255, 0.16)",
+          borderRadius: "18px",
+          padding: isMobile ? "8px 12px" : "10px 18px",
           color: "#f8fafc",
           fontFamily: "system-ui, -apple-system, sans-serif",
-          boxShadow: "0 14px 34px rgba(0, 0, 0, 0.4)",
-          width: isMobile ? "90%" : "auto",
-          maxWidth: "460px",
-          zIndex: 120,
+          boxShadow: "0 16px 36px rgba(0, 0, 0, 0.4)",
+          width: isMobile ? "94%" : "480px",
+          maxWidth: "520px",
+          zIndex: 110,
           display: "flex",
           flexDirection: "column",
           gap: "6px",
         })}
       >
+        {/* Top Info Row: Player Name, Timer, and Leaderboard Button */}
         <div
           css={css({
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            fontSize: isMobile ? "11px" : "12px",
-            fontWeight: 600,
+            fontSize: isMobile ? "11px" : "12.5px",
           })}
         >
-          <div css={css({ display: "flex", alignItems: "center", gap: "6px" })}>
-            <Navigation size={13} color="#38bdf8" />
-            <span css={css({ color: "#e2e8f0" })}>
-              Objetivo: <strong>Colegio de Occidente</strong>
-            </span>
+          {/* Player Name */}
+          <div
+            css={css({
+              display: "flex",
+              alignItems: "center",
+              gap: "5px",
+              fontWeight: 700,
+              color: "#38bdf8",
+              maxWidth: "140px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            })}
+          >
+            <User size={13} />
+            <span>{playerName || "Aventurero"}</span>
           </div>
 
-          <div css={css({ display: "flex", alignItems: "center", gap: "8px" })}>
-            {foundSuzanne && (
-              <span
-                css={css({
-                  background: "rgba(245, 158, 11, 0.25)",
-                  border: "1px solid #f59e0b",
-                  borderRadius: "9999px",
-                  padding: "1px 8px",
-                  fontSize: "10px",
-                  color: "#fcd34d",
-                  fontWeight: 700,
-                })}
-              >
-                🐵 Zusana ✓
-              </span>
-            )}
-            <span css={css({ color: "#facc15", fontWeight: 700 })}>
-              {distanceToGoal} m restantes
-            </span>
+          {/* Speedrun Timer */}
+          <div
+            css={css({
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              background: "rgba(0, 0, 0, 0.35)",
+              padding: "2px 8px",
+              borderRadius: "12px",
+              fontWeight: 800,
+              color: "#facc15",
+              fontFamily: "monospace",
+              fontSize: isMobile ? "12px" : "13.5px",
+            })}
+          >
+            <Clock size={12} />
+            <span>{formatSec(timeElapsed)}</span>
           </div>
+
+          {/* Zusana Status badge */}
+          {foundSuzanne && (
+            <span
+              css={css({
+                background: "rgba(245, 158, 11, 0.25)",
+                border: "1px solid rgba(245, 158, 11, 0.5)",
+                borderRadius: "9999px",
+                padding: "1px 7px",
+                fontSize: "10px",
+                color: "#fcd34d",
+                fontWeight: 800,
+              })}
+            >
+              🐵 Zusana ✓
+            </span>
+          )}
+
+          {/* Distance remaining */}
+          <span css={css({ color: "#94a3b8", fontWeight: 700, fontSize: isMobile ? "10px" : "11px" })}>
+            {distanceToGoal}m al Colegio
+          </span>
+
+          {/* Leaderboard Button */}
+          <button
+            onClick={() => {
+              setLeaderboardTab("school");
+              setShowLeaderboardModal(true);
+            }}
+            title="Ver Tabla de Clasificación"
+            css={css({
+              background: "rgba(250, 204, 21, 0.15)",
+              border: "1px solid rgba(250, 204, 21, 0.3)",
+              color: "#facc15",
+              borderRadius: "8px",
+              padding: "2px 7px",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              fontSize: "10.5px",
+              fontWeight: 800,
+              cursor: "pointer",
+              "&:hover": { background: "rgba(250, 204, 21, 0.25)" },
+            })}
+          >
+            <Trophy size={11} />
+            <span>Top 3</span>
+          </button>
         </div>
 
         {/* Progress Bar */}
@@ -256,25 +352,53 @@ export function GameView() {
           />
         </div>
 
+        {/* Legible text: Parque Principal de Anserma vs Colegio (Meta) */}
         <div
           css={css({
             display: "flex",
             justifyContent: "space-between",
-            fontSize: "9px",
-            color: "#94a3b8",
+            alignItems: "center",
+            marginTop: "2px",
+            gap: "6px",
           })}
         >
-          <span>🌳 Parque Principal</span>
-          <span>🏫 Colegio (Meta)</span>
+          <span
+            css={css({
+              fontSize: isMobile ? "11px" : "12px",
+              fontWeight: 800,
+              color: "#38bdf8",
+              background: "rgba(56, 189, 248, 0.15)",
+              border: "1px solid rgba(56, 189, 248, 0.35)",
+              padding: "2px 7px",
+              borderRadius: "8px",
+              whiteSpace: "nowrap",
+            })}
+          >
+            🌳 Parque Principal de Anserma
+          </span>
+          <span
+            css={css({
+              fontSize: isMobile ? "11px" : "12px",
+              fontWeight: 800,
+              color: "#facc15",
+              background: "rgba(250, 204, 21, 0.15)",
+              border: "1px solid rgba(250, 204, 21, 0.35)",
+              padding: "2px 7px",
+              borderRadius: "8px",
+              whiteSpace: "nowrap",
+            })}
+          >
+            🏫 Colegio (Meta)
+          </span>
         </div>
       </div>
 
-      {/* Floating HUD Controls (Top Left, collapsible on mobile) */}
+      {/* Floating HUD Controls (Top Left) */}
       <div
         css={css({
           position: "absolute",
           top: isMobile ? "7.8rem" : "4.0rem",
-          left: isMobile ? "1rem" : "1.5rem",
+          left: isMobile ? "0.8rem" : "1.5rem",
           background: "rgba(15, 23, 42, 0.8)",
           backdropFilter: "blur(14px)",
           border: "1px solid rgba(255, 255, 255, 0.12)",
@@ -283,7 +407,7 @@ export function GameView() {
           color: "#f8fafc",
           fontFamily: "system-ui, -apple-system, sans-serif",
           boxShadow: "0 16px 36px rgba(0, 0, 0, 0.35)",
-          maxWidth: isMobile ? "240px" : "300px",
+          maxWidth: isMobile ? "230px" : "300px",
           zIndex: 120,
           transition: "all 0.2s ease",
         })}
@@ -348,211 +472,115 @@ export function GameView() {
               },
             })}
           >
-            <RotateCcw size={11} />
-            Spawn
+            <RotateCcw size={11} /> Reiniciar
           </button>
         </div>
 
-        {/* Collapsible Controls cheatsheet */}
         {showControlsHelp && (
           <div
             css={css({
               display: "flex",
               flexDirection: "column",
-              gap: "6px",
+              gap: "7px",
               fontSize: "11px",
+              color: "#cbd5e1",
             })}
           >
-            <div
-              css={css({
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              })}
-            >
-              <span css={css({ color: "#94a3b8" })}>Moverse:</span>
-              <span css={css({ fontWeight: 600, color: "#f1f5f9" })}>
-                {isMobile ? (
-                  "Joystick virtual"
-                ) : (
-                  <>
-                    <kbd css={kbdStyle}>W</kbd> <kbd css={kbdStyle}>A</kbd>{" "}
-                    <kbd css={kbdStyle}>S</kbd> <kbd css={kbdStyle}>D</kbd>
-                  </>
-                )}
+            <div css={css({ display: "flex", justifyContent: "space-between" })}>
+              <span>Moverse:</span>
+              <span>
+                <span css={kbdStyle}>W</span> <span css={kbdStyle}>A</span>{" "}
+                <span css={kbdStyle}>S</span> <span css={kbdStyle}>D</span>
               </span>
             </div>
-
-            <div
-              css={css({
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              })}
-            >
-              <span
-                css={css({
-                  color: "#94a3b8",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                })}
-              >
-                <Flame size={12} color="#f97316" /> Correr:
-              </span>
-              <span css={css({ fontWeight: 600, color: "#f1f5f9" })}>
-                {isMobile ? "Botón 🏃" : <kbd css={kbdStyle}>Shift</kbd>}
+            <div css={css({ display: "flex", justifyContent: "space-between" })}>
+              <span>Correr:</span>
+              <span>
+                <span css={kbdStyle}>Shift</span> sostenido
               </span>
             </div>
-
-            <div
-              css={css({
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              })}
-            >
-              <span
-                css={css({
-                  color: "#94a3b8",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                })}
-              >
-                <Sparkles size={12} color="#eab308" /> Celebrar:
-              </span>
-              <span css={css({ fontWeight: 600, color: "#f1f5f9" })}>
-                {isMobile ? "Botón ✨" : <kbd css={kbdStyle}>G</kbd>}
-              </span>
+            <div css={css({ display: "flex", justifyContent: "space-between" })}>
+              <span>Celebrar:</span>
+              <span css={kbdStyle}>G</span>
             </div>
-
-            <div
-              css={css({
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              })}
-            >
-              <span
-                css={css({
-                  color: "#94a3b8",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                })}
-              >
-                <Skull size={12} color="#ef4444" /> Caer:
-              </span>
-              <span css={css({ fontWeight: 600, color: "#f1f5f9" })}>
-                {isMobile ? "Botón 💀" : <kbd css={kbdStyle}>M</kbd>}
-              </span>
+            <div css={css({ display: "flex", justifyContent: "space-between" })}>
+              <span>Caer (K.O.):</span>
+              <span css={kbdStyle}>M</span>
             </div>
-
             <div
               css={css({
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
+                borderTop: "1px dashed rgba(255,255,255,0.1)",
+                paddingTop: "6px",
+                color: "#94a3b8",
+                fontSize: "10px",
               })}
             >
-              <span
-                css={css({
-                  color: "#94a3b8",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                })}
-              >
-                <Compass size={12} color="#38bdf8" /> Cámara:
-              </span>
-              <span css={css({ color: "#cbd5e1" })}>
-                {isMobile ? "Deslizar pantalla" : "Arrastrar Mouse"}
-              </span>
+              {isMobile
+                ? "💡 Usa el joystick virtual a la izquierda y desliza la pantalla para rotar la cámara."
+                : "💡 Clic y arrastra para orbitar la cámara suavemente alrededor del personaje."}
             </div>
           </div>
         )}
       </div>
 
-      {/* Floating Status & Speed Pill (bottom-center) */}
+      {/* Floating Status Badge (Bottom Left, above touch joystick if on mobile) */}
       <div
         css={css({
           position: "absolute",
-          bottom: isMobile ? "0.8rem" : "1.75rem",
-          left: "50%",
-          transform: "translateX(-50%)",
-          background: "rgba(15, 23, 42, 0.88)",
+          bottom: isMobile ? "9.5rem" : "1.5rem",
+          left: isMobile ? "1rem" : "1.5rem",
+          background: "rgba(15, 23, 42, 0.8)",
           backdropFilter: "blur(14px)",
-          border: "1px solid rgba(255, 255, 255, 0.14)",
-          borderRadius: "9999px",
-          padding: isMobile ? "6px 14px" : "8px 22px",
-          display: "flex",
-          alignItems: "center",
-          gap: isMobile ? "10px" : "16px",
-          boxShadow: "0 12px 30px rgba(0, 0, 0, 0.4)",
+          border: "1px solid rgba(255, 255, 255, 0.12)",
+          borderRadius: "14px",
+          padding: "7px 13px",
           color: "#f8fafc",
           fontFamily: "system-ui, -apple-system, sans-serif",
-          zIndex: 120,
+          boxShadow: "0 10px 25px rgba(0, 0, 0, 0.35)",
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          zIndex: 110,
         })}
       >
-        <div css={css({ display: "flex", alignItems: "center", gap: "6px" })}>
-          <span css={css({ fontSize: isMobile ? "15px" : "18px" })}>
-            {status.icon}
+        <span css={css({ fontSize: "16px" })}>{status.icon}</span>
+        <div css={css({ display: "flex", flexDirection: "column" })}>
+          <span
+            css={css({
+              fontSize: "9px",
+              color: "#94a3b8",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+            })}
+          >
+            Estado
           </span>
           <span
             css={css({
+              fontSize: "12px",
               fontWeight: 700,
-              fontSize: isMobile ? "11px" : "13px",
               color: status.color,
-              textTransform: "uppercase",
-              letterSpacing: "0.5px",
             })}
           >
             {status.label}
           </span>
         </div>
-
-        <div
-          css={css({
-            width: "1px",
-            height: "16px",
-            background: "rgba(255,255,255,0.18)",
-          })}
-        />
-
-        <div css={css({ display: "flex", alignItems: "baseline", gap: "4px" })}>
-          <span css={css({ fontSize: "10px", color: "#94a3b8" })}>Velocidad:</span>
-          <span
-            css={css({
-              fontSize: isMobile ? "12px" : "14px",
-              fontWeight: 700,
-              color: "#38bdf8",
-            })}
-          >
-            {(speed * 3.6).toFixed(1)}
-          </span>
-          <span css={css({ fontSize: "9px", color: "#64748b" })}>km/h</span>
-        </div>
       </div>
 
-      {/* Pop-up: ¡Felicidades, encontraste a Zusana (mono de Blender)! */}
+      {/* Zusana Discovery Modal */}
       {showSuzanneModal && (
         <div
           css={css({
-            position: "absolute",
+            position: "fixed",
             inset: 0,
-            background: "rgba(15, 23, 42, 0.75)",
-            backdropFilter: "blur(10px)",
+            background: "rgba(15, 23, 42, 0.85)",
+            backdropFilter: "blur(14px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 9998,
-            animation: "fadeIn 0.3s ease",
+            zIndex: 12000,
             padding: "1rem",
-            "@keyframes fadeIn": {
-              from: { opacity: 0, transform: "scale(0.95)" },
-              to: { opacity: 1, transform: "scale(1)" },
-            },
+            fontFamily: "system-ui, -apple-system, sans-serif",
           })}
         >
           <div
@@ -560,99 +588,145 @@ export function GameView() {
               background: "linear-gradient(145deg, #1e293b 0%, #0f172a 100%)",
               border: "2px solid #f59e0b",
               borderRadius: "24px",
-              padding: isMobile ? "24px 20px" : "32px 36px",
+              padding: isMobile ? "22px 18px" : "30px 36px",
               textAlign: "center",
-              boxShadow:
-                "0 25px 60px rgba(0, 0, 0, 0.7), 0 0 35px rgba(245, 158, 11, 0.35)",
-              maxWidth: "420px",
+              boxShadow: "0 25px 60px rgba(0,0,0,0.7), 0 0 40px rgba(245, 158, 11, 0.35)",
+              maxWidth: "460px",
               width: "100%",
               color: "white",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               gap: "14px",
-              position: "relative",
             })}
           >
-            <button
-              onClick={() => setShowSuzanneModal(false)}
+            <div
               css={css({
-                position: "absolute",
-                top: "14px",
-                right: "14px",
-                background: "rgba(255, 255, 255, 0.1)",
-                border: "none",
+                width: "68px",
+                height: "68px",
                 borderRadius: "50%",
-                width: "28px",
-                height: "28px",
+                background: "linear-gradient(135deg, #fbbf24 0%, #d97706 100%)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "#cbd5e1",
-                cursor: "pointer",
-              })}
-            >
-              <X size={16} />
-            </button>
-
-            <div
-              css={css({
-                fontSize: "52px",
-                lineHeight: 1,
-                filter: "drop-shadow(0 0 16px rgba(245, 158, 11, 0.6))",
+                boxShadow: "0 0 25px rgba(245, 158, 11, 0.6)",
+                fontSize: "36px",
               })}
             >
               🐵
             </div>
 
-            <div css={css({ display: "flex", flexDirection: "column", gap: "6px" })}>
+            <div>
               <h2
                 css={css({
-                  fontSize: isMobile ? "20px" : "22px",
+                  fontSize: isMobile ? "20px" : "24px",
                   fontWeight: 900,
-                  color: "#f59e0b",
+                  color: "#fbbf24",
                   margin: 0,
-                  letterSpacing: "0.5px",
+                  lineHeight: 1.25,
                 })}
               >
-                ¡Felicidades, encontraste a Zusana!
+                ¡Felicidades, {playerName || "participante"}!
               </h2>
-              <span css={css({ fontSize: "12px", color: "#fbbf24", fontWeight: 700 })}>
-                (Mono de Blender)
-              </span>
-              <p
-                css={css({
-                  color: "#cbd5e1",
-                  fontSize: isMobile ? "12px" : "13px",
-                  margin: "8px 0 0 0",
-                  lineHeight: 1.4,
-                })}
-              >
-                ¡Has descubierto el secreto oculto en el mapa de Anserma! Zusana es el icónico
-                mono de Blender escondido en la ciudad.
-              </p>
+              <h3 css={css({ fontSize: "16px", color: "#facc15", margin: "4px 0 0 0", fontWeight: 700 })}>
+                ¡Encontraste a Zusana (mono de Blender)!
+              </h3>
+              {susanaTime && (
+                <div
+                  css={css({
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    background: "rgba(245, 158, 11, 0.2)",
+                    border: "1px solid rgba(245, 158, 11, 0.4)",
+                    padding: "4px 12px",
+                    borderRadius: "16px",
+                    color: "#fcd34d",
+                    fontSize: "13px",
+                    fontWeight: 800,
+                    margin: "8px 0 0 0",
+                  })}
+                >
+                  <Clock size={13} />
+                  <span>Tu tiempo récord: {formatSec(susanaTime)}</span>
+                </div>
+              )}
             </div>
 
-            <button
-              onClick={() => setShowSuzanneModal(false)}
+            {/* Top 3 Zusana Podium Preview */}
+            <div
               css={css({
-                background: "linear-gradient(90deg, #f59e0b 0%, #d97706 100%)",
-                color: "white",
-                border: "none",
-                borderRadius: "12px",
-                padding: "10px 26px",
-                fontSize: "14px",
-                fontWeight: 700,
-                cursor: "pointer",
-                boxShadow: "0 8px 18px rgba(217, 119, 6, 0.4)",
-                marginTop: "6px",
-                "&:hover": {
-                  transform: "translateY(-1px)",
-                },
+                width: "100%",
+                background: "rgba(0,0,0,0.3)",
+                borderRadius: "14px",
+                padding: "10px 14px",
+                textAlign: "left",
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
               })}
             >
-              ¡Genial! Continuar recorrido ✨
-            </button>
+              <span css={css({ fontSize: "11px", fontWeight: 800, color: "#94a3b8" })}>
+                🏆 TOP 3 QUIÉN ENCONTRÓ A ZUSANA MÁS RÁPIDO:
+              </span>
+              {topSusanaRecords.map((rec, i) => (
+                <div
+                  key={i}
+                  css={css({
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "12px",
+                    color: i === 0 ? "#facc15" : i === 1 ? "#e2e8f0" : "#fb923c",
+                    fontWeight: 700,
+                  })}
+                >
+                  <span>
+                    {i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"} {rec.name}
+                  </span>
+                  <span>{formatSec(rec.time)}</span>
+                </div>
+              ))}
+            </div>
+
+            <div css={css({ display: "flex", gap: "10px", width: "100%" })}>
+              <button
+                onClick={() => {
+                  setShowSuzanneModal(false);
+                  setLeaderboardTab("susana");
+                  setShowLeaderboardModal(true);
+                }}
+                css={css({
+                  flex: 1,
+                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  color: "#cbd5e1",
+                  borderRadius: "12px",
+                  padding: "10px 14px",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                })}
+              >
+                Ver Clasificación
+              </button>
+              <button
+                onClick={() => setShowSuzanneModal(false)}
+                css={css({
+                  flex: 1,
+                  background: "linear-gradient(90deg, #f59e0b 0%, #d97706 100%)",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "12px",
+                  padding: "10px 18px",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  boxShadow: "0 6px 16px rgba(217, 119, 6, 0.4)",
+                })}
+              >
+                Continuar ✨
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -661,20 +735,16 @@ export function GameView() {
       {gameWon && (
         <div
           css={css({
-            position: "absolute",
+            position: "fixed",
             inset: 0,
-            background: "rgba(15, 23, 42, 0.8)",
-            backdropFilter: "blur(12px)",
+            background: "rgba(15, 23, 42, 0.85)",
+            backdropFilter: "blur(14px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 9999,
-            animation: "fadeIn 0.5s ease",
+            zIndex: 12000,
             padding: "1rem",
-            "@keyframes fadeIn": {
-              from: { opacity: 0 },
-              to: { opacity: 1 },
-            },
+            fontFamily: "system-ui, -apple-system, sans-serif",
           })}
         >
           <div
@@ -682,42 +752,40 @@ export function GameView() {
               background: "linear-gradient(145deg, #1e293b 0%, #0f172a 100%)",
               border: "2px solid #facc15",
               borderRadius: "24px",
-              padding: isMobile ? "24px 20px" : "36px 44px",
+              padding: isMobile ? "24px 18px" : "36px 40px",
               textAlign: "center",
-              boxShadow:
-                "0 25px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(250, 204, 21, 0.3)",
-              maxWidth: "440px",
+              boxShadow: "0 25px 60px rgba(0, 0, 0, 0.7), 0 0 45px rgba(250, 204, 21, 0.4)",
+              maxWidth: "460px",
               width: "100%",
               color: "white",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: "16px",
+              gap: "14px",
             })}
           >
             <div
               css={css({
-                width: isMobile ? "60px" : "72px",
-                height: isMobile ? "60px" : "72px",
+                width: "68px",
+                height: "68px",
                 borderRadius: "50%",
                 background: "linear-gradient(135deg, #facc15 0%, #eab308 100%)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 0 25px rgba(250, 204, 21, 0.6)",
+                boxShadow: "0 0 30px rgba(250, 204, 21, 0.6)",
               })}
             >
-              <Award size={isMobile ? 32 : 40} color="#0f172a" />
+              <Award size={38} color="#0f172a" />
             </div>
 
-            <div css={css({ display: "flex", flexDirection: "column", gap: "6px" })}>
+            <div>
               <h2
                 css={css({
                   fontSize: isMobile ? "22px" : "26px",
                   fontWeight: 900,
                   color: "#facc15",
                   margin: 0,
-                  letterSpacing: "0.5px",
                 })}
               >
                 ¡LLEGASTE AL COLEGIO!
@@ -725,56 +793,131 @@ export function GameView() {
               <p
                 css={css({
                   color: "#cbd5e1",
-                  fontSize: isMobile ? "12px" : "14px",
-                  margin: 0,
+                  fontSize: isMobile ? "12px" : "13.5px",
+                  margin: "6px 0 0 0",
                   lineHeight: 1.4,
                 })}
               >
-                ¡Felicidades! Has completado el recorrido por Anserma desde el{" "}
-                <strong>Parque Principal</strong> hasta el{" "}
-                <strong>Colegio de Occidente</strong>.
+                ¡Misión cumplida, <strong>{playerName || "participante"}</strong>! Has completado el recorrido desde el{" "}
+                <strong>Parque Principal</strong> hasta el <strong>Colegio de Occidente</strong>.
               </p>
+              {schoolTime && (
+                <div
+                  css={css({
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    background: "rgba(56, 189, 248, 0.2)",
+                    border: "1px solid rgba(56, 189, 248, 0.4)",
+                    padding: "4px 14px",
+                    borderRadius: "16px",
+                    color: "#38bdf8",
+                    fontSize: "14px",
+                    fontWeight: 800,
+                    margin: "8px 0 0 0",
+                  })}
+                >
+                  <Clock size={14} />
+                  <span>Tu tiempo récord: {formatSec(schoolTime)}</span>
+                </div>
+              )}
             </div>
 
+            {/* Top 3 School Arrival Podium Preview */}
             <div
               css={css({
-                background: "rgba(255, 255, 255, 0.06)",
-                borderRadius: "12px",
-                padding: "8px 16px",
-                fontSize: "12px",
-                color: "#94a3b8",
+                width: "100%",
+                background: "rgba(0,0,0,0.3)",
+                borderRadius: "14px",
+                padding: "10px 14px",
+                textAlign: "left",
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
               })}
             >
-              🎉 El personaje está bailando y celebrando tu victoria.
+              <span css={css({ fontSize: "11px", fontWeight: 800, color: "#94a3b8" })}>
+                🏆 TOP 3 LLEGADA MÁS RÁPIDA AL COLEGIO:
+              </span>
+              {topSchoolRecords.map((rec, i) => (
+                <div
+                  key={i}
+                  css={css({
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "12px",
+                    color: i === 0 ? "#facc15" : i === 1 ? "#e2e8f0" : "#fb923c",
+                    fontWeight: 700,
+                  })}
+                >
+                  <span>
+                    {i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"} {rec.name}
+                  </span>
+                  <span>{formatSec(rec.time)}</span>
+                </div>
+              ))}
             </div>
 
-            <button
-              onClick={triggerResetPlayerPos}
-              css={css({
-                background: "linear-gradient(90deg, #38bdf8 0%, #0284c7 100%)",
-                color: "white",
-                border: "none",
-                borderRadius: "12px",
-                padding: isMobile ? "10px 24px" : "12px 28px",
-                fontSize: isMobile ? "14px" : "15px",
-                fontWeight: 700,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                boxShadow: "0 10px 20px rgba(2, 132, 199, 0.4)",
-                transition: "all 0.2s ease",
-                "&:hover": {
-                  transform: "translateY(-2px)",
-                  boxShadow: "0 14px 28px rgba(2, 132, 199, 0.6)",
-                },
-              })}
-            >
-              <RotateCcw size={16} /> Jugar de nuevo
-            </button>
+            <div css={css({ display: "flex", gap: "10px", width: "100%" })}>
+              <button
+                onClick={() => {
+                  setLeaderboardTab("school");
+                  setShowLeaderboardModal(true);
+                }}
+                css={css({
+                  flex: 1,
+                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  color: "#cbd5e1",
+                  borderRadius: "12px",
+                  padding: "11px 14px",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                })}
+              >
+                Ver Clasificación
+              </button>
+              <button
+                onClick={triggerResetPlayerPos}
+                css={css({
+                  flex: 1,
+                  background: "linear-gradient(90deg, #38bdf8 0%, #0284c7 100%)",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "12px",
+                  padding: "11px 18px",
+                  fontSize: "13px",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px",
+                  boxShadow: "0 8px 20px rgba(2, 132, 199, 0.4)",
+                })}
+              >
+                <RotateCcw size={15} /> Jugar de nuevo
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* Leaderboard Modal (Can be toggled anytime from HUD or after winning) */}
+      <LeaderboardModal
+        isOpen={showLeaderboardModal}
+        onClose={() => setShowLeaderboardModal(false)}
+        initialTab={leaderboardTab}
+      />
+
+      {/* Preload Poster & Intro Video Modal at Start */}
+      <PreloadAndIntroModal
+        onOpenLeaderboard={() => {
+          setLeaderboardTab("school");
+          setShowLeaderboardModal(true);
+        }}
+      />
     </div>
   );
 }
