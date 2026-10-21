@@ -18,7 +18,8 @@ const BUILDING_COLORS = [
 ];
 
 export function Map() {
-  const { scene } = useGLTF("/models/mapa.glb");
+  const modelUrl = `${import.meta.env.BASE_URL}models/mapa.glb`;
+  const { scene } = useGLTF(modelUrl);
   const mapRef = useRef<THREE.Group>(null);
   const setSuzannePos = useGameStore((s) => s.setSuzannePos);
   const foundSuzanne = useGameStore((s) => s.foundSuzanne);
@@ -200,4 +201,4 @@ export function Map() {
   );
 }
 
-useGLTF.preload("/models/mapa.glb");
+useGLTF.preload(`${import.meta.env.BASE_URL}models/mapa.glb`);

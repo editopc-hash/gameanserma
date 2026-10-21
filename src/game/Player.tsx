@@ -9,10 +9,10 @@ export function Player() {
   const { camera, scene } = useThree();
 
   // Load GLTF files
-  const walkGltf = useGLTF("/models/caminar.glb");
-  const runGltf = useGLTF("/models/correr.glb");
-  const winGltf = useGLTF("/models/ganar.glb");
-  const deadGltf = useGLTF("/models/muerto.glb");
+  const walkGltf = useGLTF(`${import.meta.env.BASE_URL}models/caminar.glb`);
+  const runGltf = useGLTF(`${import.meta.env.BASE_URL}models/correr.glb`);
+  const winGltf = useGLTF(`${import.meta.env.BASE_URL}models/ganar.glb`);
+  const deadGltf = useGLTF(`${import.meta.env.BASE_URL}models/muerto.glb`);
 
   // Merge and rename animation clips
   const clips = useMemo(() => {
@@ -517,7 +517,7 @@ export function Player() {
   );
 }
 
-useGLTF.preload("/models/caminar.glb");
-useGLTF.preload("/models/correr.glb");
-useGLTF.preload("/models/ganar.glb");
-useGLTF.preload("/models/muerto.glb");
+useGLTF.preload(`${import.meta.env.BASE_URL}models/caminar.glb`);
+useGLTF.preload(`${import.meta.env.BASE_URL}models/correr.glb`);
+useGLTF.preload(`${import.meta.env.BASE_URL}models/ganar.glb`);
+useGLTF.preload(`${import.meta.env.BASE_URL}models/muerto.glb`);

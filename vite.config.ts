@@ -4,10 +4,8 @@ import dts from "vite-plugin-dts";
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: "/gameanserma/",
   plugins: [
-    dts({
-      insertTypesEntry: true,
-    }),
     react({
       jsxImportSource: "@emotion/react",
       babel: {
