@@ -153,7 +153,7 @@ export function Player() {
     []
   );
   const obstacleRaycaster = useMemo(
-    () => new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, 0, 1), 0, 2.0),
+    () => new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, 0, 1), 0, 3.0),
     []
   );
 
@@ -441,37 +441,77 @@ export function Player() {
       ) - Math.PI;
       player.rotation.y += diff * Math.min(1, delta * 14);
 
-      // Robust obstacle collision check with wall sliding
+      // Solid collision detection with generous safe wall buffer (prevents sinking into walls)
       const moveDistance = moveSpeed * delta;
-      const rayOrigin = player.position.clone().add(new THREE.Vector3(0, 0.85, 0));
-      obstacleRaycaster.set(rayOrigin, inputDir);
+      const SAFE_WALL_DIST = 0.95; // Keeps character safely outside wall geometry
+      const forwardThreshold = SAFE_WALL_DIST + moveDistance;
 
-      const intersects = obstacleRaycaster.intersectObjects(scene.children, true);
-      const obstacleHit = intersects.find(
-        (hit) => hit.object.userData?.isObstacle && hit.distance < 0.70
-      );
+      // Cast at chest (1.05m) and waist (0.55m)
+      const rayOrigins = [
+        player.position.clone().add(new THREE.Vector3(0, 1.05, 0)),
+        player.position.clone().add(new THREE.Vector3(0, 0.55, 0)),
+      ];
 
-      if (!obstacleHit) {
+      let closestObstacleDist = Infinity;
+      for (const origin of rayOrigins) {
+        obstacleRaycaster.set(origin, inputDir);
+        const hits = obstacleRaycaster.intersectObjects(scene.children, true);
+        const hit = hits.find(
+          (h) => h.object.userData?.isObstacle && h.distance < forwardThreshold
+        );
+        if (hit && hit.distance < closestObstacleDist) {
+          closestObstacleDist = hit.distance;
+        }
+      }
+
+      if (closestObstacleDist > forwardThreshold) {
+        // Path is completely clear forward
         player.position.addScaledVector(inputDir, moveDistance);
       } else {
-        // Try sliding along X
-        const xDir = new THREE.Vector3(inputDir.x, 0, 0).normalize();
-        obstacleRaycaster.set(rayOrigin, xDir);
-        const hitX = obstacleRaycaster.intersectObjects(scene.children, true).find(
-          (hit) => hit.object.userData?.isObstacle && hit.distance < 0.65
-        );
-        if (!hitX && Math.abs(inputDir.x) > 0.1) {
-          player.position.x += inputDir.x * moveDistance;
+        // Move only the safe remaining distance before hitting the buffer
+        const safeForwardStep = Math.max(0, closestObstacleDist - SAFE_WALL_DIST);
+        if (safeForwardStep > 0.001) {
+          player.position.addScaledVector(inputDir, safeForwardStep);
         }
 
-        // Try sliding along Z
-        const zDir = new THREE.Vector3(0, 0, inputDir.z).normalize();
-        obstacleRaycaster.set(rayOrigin, zDir);
-        const hitZ = obstacleRaycaster.intersectObjects(scene.children, true).find(
-          (hit) => hit.object.userData?.isObstacle && hit.distance < 0.65
-        );
-        if (!hitZ && Math.abs(inputDir.z) > 0.1) {
-          player.position.z += inputDir.z * moveDistance;
+        // Active push-back if player is already closer than safe distance
+        if (closestObstacleDist < SAFE_WALL_DIST - 0.05) {
+          const pushBack = (SAFE_WALL_DIST - closestObstacleDist) * 0.4;
+          player.position.addScaledVector(inputDir, -pushBack);
+        }
+
+        // Smooth sliding along X axis
+        if (Math.abs(inputDir.x) > 0.1) {
+          const xDir = new THREE.Vector3(Math.sign(inputDir.x), 0, 0);
+          let blockedX = false;
+          for (const origin of rayOrigins) {
+            obstacleRaycaster.set(origin, xDir);
+            const hitsX = obstacleRaycaster.intersectObjects(scene.children, true);
+            if (hitsX.some((h) => h.object.userData?.isObstacle && h.distance < SAFE_WALL_DIST)) {
+              blockedX = true;
+              break;
+            }
+          }
+          if (!blockedX) {
+            player.position.x += inputDir.x * moveDistance;
+          }
+        }
+
+        // Smooth sliding along Z axis
+        if (Math.abs(inputDir.z) > 0.1) {
+          const zDir = new THREE.Vector3(0, 0, Math.sign(inputDir.z));
+          let blockedZ = false;
+          for (const origin of rayOrigins) {
+            obstacleRaycaster.set(origin, zDir);
+            const hitsZ = obstacleRaycaster.intersectObjects(scene.children, true);
+            if (hitsZ.some((h) => h.object.userData?.isObstacle && h.distance < SAFE_WALL_DIST)) {
+              blockedZ = true;
+              break;
+            }
+          }
+          if (!blockedZ) {
+            player.position.z += inputDir.z * moveDistance;
+          }
         }
       }
 
@@ -511,13 +551,13 @@ export function Player() {
       setGameWon(true);
     }
 
-    // Check proximity to Zusana (Suzanne monkey head from Blender)
+    // Check proximity to Zusana (Suzanne monkey head from Blender, now smaller)
     if (!foundSuzanne && suzannePos) {
       const distToSuzanne = Math.hypot(
         player.position.x - suzannePos[0],
         player.position.z - suzannePos[2]
       );
-      if (distToSuzanne < 5.0) {
+      if (distToSuzanne < 4.0) {
         setFoundSuzanne(true);
         setShowSuzanneModal(true);
       }
