@@ -199,12 +199,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   suzannePos: null,
   setSuzannePos: (suzannePos) => set({ suzannePos }),
 
-  // Camera Distance: default 1.65m for very close, immersive perspective
+  // Camera Distance: default 1.65m for very close, immersive perspective (0.8m to 7.5m range)
   cameraDistance: 1.65,
-  setCameraDistance: (cameraDistance) => set({ cameraDistance: Math.max(1.1, Math.min(3.2, cameraDistance)) }),
+  setCameraDistance: (cameraDistance) =>
+    set({ cameraDistance: Math.max(0.8, Math.min(7.5, Number(cameraDistance.toFixed(2)))) }),
   toggleCameraDistance: () =>
     set((state) => ({
-      cameraDistance: state.cameraDistance < 2.0 ? 2.6 : 1.65,
+      cameraDistance: state.cameraDistance < 2.0 ? 2.8 : state.cameraDistance < 3.8 ? 4.8 : 1.65,
     })),
 }));
 

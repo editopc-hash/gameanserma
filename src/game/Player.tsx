@@ -138,13 +138,51 @@ export function Player() {
 
   const specialState = useRef<"win" | "dead" | null>(null);
 
+  // Celebration song audio (sonidos/01.mp3)
+  const celebrateAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const audio = new Audio(`${import.meta.env.BASE_URL}sonidos/01.mp3`);
+    audio.loop = true;
+    audio.volume = 0.85;
+    celebrateAudioRef.current = audio;
+    return () => {
+      audio.pause();
+      audio.src = "";
+    };
+  }, []);
+
+  useEffect(() => {
+    const audio = celebrateAudioRef.current;
+    if (!audio) return;
+    if (animState === "win") {
+      if (audio.paused) {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      }
+    } else {
+      if (!audio.paused) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+    }
+  }, [animState]);
+
   // Handle triggered touch actions (dance / ko)
   useEffect(() => {
     if (triggerAction) {
       if (triggerAction === specialState.current) {
         specialState.current = null;
+        if (celebrateAudioRef.current && !celebrateAudioRef.current.paused) {
+          celebrateAudioRef.current.pause();
+          celebrateAudioRef.current.currentTime = 0;
+        }
       } else {
         specialState.current = triggerAction;
+        if (triggerAction === "win" && celebrateAudioRef.current) {
+          celebrateAudioRef.current.currentTime = 0;
+          celebrateAudioRef.current.play().catch(() => {});
+        }
       }
       setTriggerAction(null);
     }
@@ -163,7 +201,7 @@ export function Player() {
     []
   );
   const obstacleRaycaster = useMemo(
-    () => new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, 0, 1), 0, 4.0),
+    () => new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, 0, 1), 0, 8.0),
     []
   );
 
@@ -205,8 +243,16 @@ export function Player() {
       if (key === "g") {
         if (specialState.current === "win") {
           specialState.current = null;
+          if (celebrateAudioRef.current && !celebrateAudioRef.current.paused) {
+            celebrateAudioRef.current.pause();
+            celebrateAudioRef.current.currentTime = 0;
+          }
         } else {
           specialState.current = "win";
+          if (celebrateAudioRef.current) {
+            celebrateAudioRef.current.currentTime = 0;
+            celebrateAudioRef.current.play().catch(() => {});
+          }
         }
       }
 
@@ -249,9 +295,11 @@ export function Player() {
     };
   }, [gameWon]);
 
-  // Mouse & Touch camera orbit controls
+  // Mouse & Touch camera orbit controls (allows looking up and down freely)
   useEffect(() => {
     const onMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === "INPUT" || target.tagName === "BUTTON")) return;
       isMouseDown.current = true;
       lastMousePos.current = { x: e.clientX, y: e.clientY };
     };
@@ -266,16 +314,17 @@ export function Player() {
       const dy = e.clientY - lastMousePos.current.y;
       lastMousePos.current = { x: e.clientX, y: e.clientY };
 
-      cameraAngle.current.yaw -= dx * 0.005;
+      cameraAngle.current.yaw -= dx * 0.0065;
+      // Pitch from -0.85 (looking high up at buildings/sky) to +1.35 (looking down from above)
       cameraAngle.current.pitch = Math.max(
-        0.05,
-        Math.min(Math.PI / 2.5, cameraAngle.current.pitch + dy * 0.005)
+        -0.85,
+        Math.min(1.35, cameraAngle.current.pitch + dy * 0.0065)
       );
     };
 
-    // Wheel zoom for PC
+    // Wheel zoom for PC (0.8m to 7.5m)
     const onWheel = (e: WheelEvent) => {
-      const next = Math.max(1.1, Math.min(3.2, camDistTarget.current + e.deltaY * 0.002));
+      const next = Math.max(0.8, Math.min(7.5, camDistTarget.current + e.deltaY * 0.003));
       camDistTarget.current = next;
       setCameraDistance(next);
     };
@@ -290,6 +339,9 @@ export function Player() {
       }
       for (let i = 0; i < e.touches.length; i++) {
         const touch = e.touches[i];
+        const target = touch.target as HTMLElement;
+        if (target && (target.tagName === "INPUT" || target.tagName === "BUTTON")) continue;
+
         const isNearJoystick = touch.clientX < 150 && touch.clientY > window.innerHeight - 170;
         const isNearButtons = touch.clientX > window.innerWidth - 150 && touch.clientY > window.innerHeight - 170;
 
@@ -308,7 +360,7 @@ export function Player() {
         const dist = Math.hypot(dx, dy);
         if (touchPinchDist.current !== null) {
           const diff = touchPinchDist.current - dist;
-          const next = Math.max(1.1, Math.min(3.2, camDistTarget.current + diff * 0.006));
+          const next = Math.max(0.8, Math.min(7.5, camDistTarget.current + diff * 0.008));
           camDistTarget.current = next;
           setCameraDistance(next);
         }
@@ -325,10 +377,11 @@ export function Player() {
           const dy = touch.clientY - lastTouchCamPos.current.y;
           lastTouchCamPos.current = { x: touch.clientX, y: touch.clientY };
 
-          cameraAngle.current.yaw -= dx * 0.006;
+          cameraAngle.current.yaw -= dx * 0.008;
+          // Pitch from -0.85 (looking high up) to +1.35 (looking down)
           cameraAngle.current.pitch = Math.max(
-            0.05,
-            Math.min(Math.PI / 2.5, cameraAngle.current.pitch + dy * 0.006)
+            -0.85,
+            Math.min(1.35, cameraAngle.current.pitch + dy * 0.008)
           );
           break;
         }
@@ -636,21 +689,22 @@ export function Player() {
       }
     }
 
-    // Close third-person camera (default 1.65m - character is close and prominent)
+    // Third-person camera with full vertical look (up/down) and distance control
     const targetDist = camDistTarget.current || 1.65;
-    const camOffset = new THREE.Vector3(
-      Math.sin(cameraAngle.current.yaw) *
-        Math.cos(cameraAngle.current.pitch) *
-        targetDist,
-      Math.sin(cameraAngle.current.pitch) * targetDist + 0.45,
-      Math.cos(cameraAngle.current.yaw) *
-        Math.cos(cameraAngle.current.pitch) *
-        targetDist
-    );
+    const pitch = cameraAngle.current.pitch;
+    const yaw = cameraAngle.current.yaw;
 
+    // Raise lookTarget when pitch < 0 so looking up tilts the camera toward upper floors and sky
+    const upwardLookBoost = pitch < 0 ? Math.sin(-pitch) * 2.0 : 0;
     const lookTarget = player.position
       .clone()
-      .add(new THREE.Vector3(0, 1.15, 0));
+      .add(new THREE.Vector3(0, 1.25 + upwardLookBoost, 0));
+
+    const camOffset = new THREE.Vector3(
+      Math.sin(yaw) * Math.cos(pitch) * targetDist,
+      Math.sin(pitch) * targetDist,
+      Math.cos(yaw) * Math.cos(pitch) * targetDist
+    );
 
     // Camera occlusion: pull camera forward if a building is directly behind the character
     let actualCamDist = targetDist;
@@ -660,11 +714,14 @@ export function Player() {
     const camHits = obstacleRaycaster.intersectObjects(obstacles, true);
     const camWallHit = camHits.find((h) => h.object.userData?.isObstacle && h.distance < targetDist);
     if (camWallHit) {
-      actualCamDist = Math.max(0.75, camWallHit.distance - 0.2);
+      actualCamDist = Math.max(0.65, camWallHit.distance - 0.2);
     }
 
     const desiredCamPos = lookTarget.clone().add(camRayDir.multiplyScalar(actualCamDist));
-    camera.position.lerp(desiredCamPos, 0.22);
+    // Keep camera above street level when looking straight up
+    desiredCamPos.y = Math.max(player.position.y + 0.25, desiredCamPos.y);
+
+    camera.position.lerp(desiredCamPos, 0.25);
     camera.lookAt(lookTarget);
   });
 

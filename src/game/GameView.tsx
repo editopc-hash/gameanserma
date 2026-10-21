@@ -51,6 +51,7 @@ export function GameView() {
 
   // Dynamic Camera Distance (Zoom)
   const cameraDistance = useGameStore((s) => s.cameraDistance);
+  const setCameraDistance = useGameStore((s) => s.setCameraDistance);
   const toggleCameraDistance = useGameStore((s) => s.toggleCameraDistance);
 
   // Player and speedrun state
@@ -334,7 +335,7 @@ export function GameView() {
         </div>
       </div>
 
-      {/* Small floating banner: Parque Principal (Only visible at start, small on mobile, disappears after 5s) */}
+      {/* Small floating banner: Parque Principal & Colegio Meta (Only visible at start for 5s, disappears automatically) */}
       {showStartToast && (
         <div
           css={css({
@@ -348,7 +349,7 @@ export function GameView() {
             borderRadius: "20px",
             padding: "5px 14px",
             color: "#38bdf8",
-            fontSize: isMobile ? "11.5px" : "12.5px",
+            fontSize: isMobile ? "11px" : "12.5px",
             fontWeight: 700,
             display: "flex",
             alignItems: "center",
@@ -364,8 +365,9 @@ export function GameView() {
             },
           })}
         >
-          <span>📍</span>
-          <span>Parque Principal de Anserma (Inicio)</span>
+          <span>📍 Parque Principal (Inicio)</span>
+          <span css={css({ color: "#94a3b8" })}>➔</span>
+          <span css={css({ color: "#facc15" })}>🏫 Colegio (Meta)</span>
         </div>
       )}
 
@@ -383,7 +385,7 @@ export function GameView() {
           color: "#f8fafc",
           fontFamily: "system-ui, -apple-system, sans-serif",
           boxShadow: "0 16px 36px rgba(0, 0, 0, 0.35)",
-          maxWidth: isMobile ? "230px" : "300px",
+          maxWidth: isMobile ? "245px" : "310px",
           zIndex: 120,
           transition: "all 0.2s ease",
         })}
@@ -393,11 +395,9 @@ export function GameView() {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            borderBottom: showControlsHelp
-              ? "1px solid rgba(255,255,255,0.1)"
-              : "none",
-            paddingBottom: showControlsHelp ? "6px" : "0",
-            marginBottom: showControlsHelp ? "8px" : "0",
+            borderBottom: "1px solid rgba(255,255,255,0.1)",
+            paddingBottom: "6px",
+            marginBottom: "6px",
             gap: "8px",
           })}
         >
@@ -430,11 +430,11 @@ export function GameView() {
           <div css={css({ display: "flex", alignItems: "center", gap: "6px" })}>
             <button
               onClick={toggleCameraDistance}
-              title="Alternar distancia de cámara (Cerca / Normal)"
+              title="Alternar distancia de cámara"
               css={css({
-                background: cameraDistance < 2.0 ? "rgba(56, 189, 248, 0.22)" : "rgba(255, 255, 255, 0.1)",
-                border: cameraDistance < 2.0 ? "1px solid rgba(56, 189, 248, 0.6)" : "1px solid transparent",
-                color: cameraDistance < 2.0 ? "#38bdf8" : "#cbd5e1",
+                background: "rgba(56, 189, 248, 0.2)",
+                border: "1px solid rgba(56, 189, 248, 0.5)",
+                color: "#38bdf8",
                 borderRadius: "6px",
                 padding: "3px 7px",
                 display: "flex",
@@ -443,14 +443,9 @@ export function GameView() {
                 fontSize: "10px",
                 fontWeight: 700,
                 cursor: "pointer",
-                transition: "all 0.15s ease",
-                "&:hover": {
-                  background: "rgba(56, 189, 248, 0.3)",
-                  color: "#38bdf8",
-                },
               })}
             >
-              <Camera size={11} /> {cameraDistance < 2.0 ? "Cámara Cerca" : "Cámara Media"}
+              <Camera size={11} /> {cameraDistance.toFixed(1)}m
             </button>
 
             <button
@@ -479,6 +474,74 @@ export function GameView() {
           </div>
         </div>
 
+        {/* Always-visible Camera Distance Slider & -/+ Buttons for instant control */}
+        <div
+          css={css({
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            marginBottom: showControlsHelp ? "8px" : "0",
+          })}
+        >
+          <span css={css({ fontSize: "10px", color: "#94a3b8", fontWeight: 600, whiteSpace: "nowrap" })}>
+            Distancia:
+          </span>
+          <button
+            onClick={() => setCameraDistance(cameraDistance - 0.35)}
+            title="Acercar cámara"
+            css={css({
+              background: "rgba(255,255,255,0.12)",
+              border: "none",
+              color: "white",
+              borderRadius: "5px",
+              width: "20px",
+              height: "20px",
+              fontSize: "12px",
+              fontWeight: 800,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            })}
+          >
+            -
+          </button>
+          <input
+            type="range"
+            min="0.8"
+            max="7.5"
+            step="0.1"
+            value={cameraDistance}
+            onChange={(e) => setCameraDistance(parseFloat(e.target.value))}
+            css={css({
+              flex: 1,
+              accentColor: "#38bdf8",
+              cursor: "pointer",
+              height: "4px",
+            })}
+          />
+          <button
+            onClick={() => setCameraDistance(cameraDistance + 0.35)}
+            title="Alejar cámara"
+            css={css({
+              background: "rgba(255,255,255,0.12)",
+              border: "none",
+              color: "white",
+              borderRadius: "5px",
+              width: "20px",
+              height: "20px",
+              fontSize: "12px",
+              fontWeight: 800,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            })}
+          >
+            +
+          </button>
+        </div>
+
         {showControlsHelp && (
           <div
             css={css({
@@ -487,6 +550,8 @@ export function GameView() {
               gap: "7px",
               fontSize: "11px",
               color: "#cbd5e1",
+              borderTop: "1px solid rgba(255,255,255,0.08)",
+              paddingTop: "6px",
             })}
           >
             <div css={css({ display: "flex", justifyContent: "space-between" })}>
@@ -503,7 +568,7 @@ export function GameView() {
               </span>
             </div>
             <div css={css({ display: "flex", justifyContent: "space-between" })}>
-              <span>Celebrar:</span>
+              <span>Celebrar (+Música):</span>
               <span css={kbdStyle}>G</span>
             </div>
             <div css={css({ display: "flex", justifyContent: "space-between" })}>
@@ -513,7 +578,7 @@ export function GameView() {
             <div css={css({ display: "flex", justifyContent: "space-between" })}>
               <span>Zoom cámara:</span>
               <span css={css({ color: "#38bdf8", fontWeight: 700 })}>
-                {isMobile ? "Pellizcar pantalla" : "Rueda del mouse"}
+                {isMobile ? "Barra / Pellizcar" : "Rueda / Barra"}
               </span>
             </div>
             <div
@@ -525,8 +590,8 @@ export function GameView() {
               })}
             >
               {isMobile
-                ? "💡 Usa el joystick virtual a la izquierda y desliza la pantalla para rotar la cámara."
-                : "💡 Clic y arrastra para orbitar la cámara suavemente alrededor del personaje."}
+                ? "💡 Desliza la pantalla hacia arriba/abajo o lados para mirar en cualquier dirección."
+                : "💡 Clic y arrastra hacia arriba, abajo o los lados para mirar libremente."}
             </div>
           </div>
         )}

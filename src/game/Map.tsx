@@ -146,7 +146,7 @@ export function Map() {
         </mesh>
       </group>
 
-      {/* Checkpoint: Colegio (Meta) */}
+      {/* Checkpoint: Colegio (Meta) - Ground Plaza & Rings only */}
       <group position={[GOAL_POS[0] - offset.x, 0.05, GOAL_POS[2] - offset.z]}>
         {/* Goal plaza ring */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
@@ -158,26 +158,6 @@ export function Map() {
           <ringGeometry args={[3.2, 4.0, 32]} />
           <meshBasicMaterial color="#facc15" transparent opacity={0.9} />
         </mesh>
-
-        <Html position={[0, 3.2, 0]} center distanceFactor={26}>
-          <div
-            style={{
-              background: "rgba(15, 23, 42, 0.9)",
-              color: "#facc15",
-              padding: "6px 14px",
-              borderRadius: "20px",
-              fontWeight: 800,
-              fontSize: "13px",
-              border: "2px solid #facc15",
-              boxShadow: "0 0 20px rgba(250, 204, 21, 0.7)",
-              whiteSpace: "nowrap",
-              userSelect: "none",
-              pointerEvents: "none",
-            }}
-          >
-            🏫 Colegio (Meta)
-          </div>
-        </Html>
       </group>
     </group>
   );
